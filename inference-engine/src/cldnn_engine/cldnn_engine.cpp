@@ -154,10 +154,10 @@ InferenceEngine::CNNNetwork clDNNEngine::CloneAndTransformNetwork(const Inferenc
         {
             ngraph::pass::Manager manager;
             enableInt8 = config.enableInt8 && ngraph::pass::low_precision::LowPrecisionTransformer::isFunctionQuantized(nGraphFunc);
-            if (enableInt8) {
-                manager.register_pass<ngraph::pass::DisableConvertConstantFoldingOnConstPath>(
-                    std::vector<ngraph::element::Type>{ ngraph::element::i8, ngraph::element::u8, ngraph::element::i4, ngraph::element::u4 });
-            }
+//            if (enableInt8) {
+//                manager.register_pass<ngraph::pass::DisableConvertConstantFoldingOnConstPath>(
+//                    std::vector<ngraph::element::Type>{ ngraph::element::i8, ngraph::element::u8, ngraph::element::i4, ngraph::element::u4 });
+//            }
 
             manager.register_pass<ngraph::pass::InitNodeInfo>();
             manager.register_pass<ngraph::pass::CommonOptimizations>();
@@ -350,52 +350,52 @@ InferenceEngine::CNNNetwork clDNNEngine::CloneAndTransformNetwork(const Inferenc
 
             pass_config->enable<ngraph::pass::ConvertInterpolate1ToInterpolate4>();
 
-            if (enableInt8) {
-                pass_config->set_callback<ngraph::pass::ConvertQuantizeDequantize>([](const_node_ptr &node) -> bool {
-                    return ngraph::pass::low_precision::NetworkHelper::areQuantizeAndDequantizeSupportedForMultiply(node);
-                });
-
-                pass_config->set_callback<ngraph::pass::ConvertSubtract>([](const_node_ptr &node) -> bool {
-                    return ngraph::pass::low_precision::NetworkHelper::areQuantizeAndDequantizeSupportedForSubtract(node);
-                });
-            }
+//            if (enableInt8) {
+//                pass_config->set_callback<ngraph::pass::ConvertQuantizeDequantize>([](const_node_ptr &node) -> bool {
+//                    return ngraph::pass::low_precision::NetworkHelper::areQuantizeAndDequantizeSupportedForMultiply(node);
+//                });
+//
+//                pass_config->set_callback<ngraph::pass::ConvertSubtract>([](const_node_ptr &node) -> bool {
+//                    return ngraph::pass::low_precision::NetworkHelper::areQuantizeAndDequantizeSupportedForSubtract(node);
+//                });
+//            }
 
             manager.run_passes(nGraphFunc);
         }
 
-        if (enableInt8) {
-            OV_ITT_SCOPED_TASK(itt::domains::CLDNNPlugin, "clDNNEngine::TransformNetwork::LPT");
-            using namespace ngraph::pass::low_precision;
-
-            ngraph::pass::Manager manager;
-            // Conversion to FP32 might be needed for quantized models that face any fp16 related issues (e.g. overflow) for non-quantized layers
-            // With this key users can work-around such issues
-            if (!config.enable_fp16_for_quantized_models) {
-                manager.register_pass<ngraph::pass::ConvertPrecision>(precisions_array {{ ngraph::element::f16, ngraph::element::f32 }});
-            }
-            auto lptPrerequisites = manager.register_pass<ngraph::pass::GraphRewrite>();
-            const std::vector<ngraph::element::Type> supportedTypes = { ngraph::element::i8, ngraph::element::u8 };
-            lptPrerequisites->add_matcher<PullReshapeThroughDequantization>(supportedTypes);
-            lptPrerequisites->add_matcher<PullTransposeThroughDequantization>(supportedTypes);
-            lptPrerequisites->add_matcher<ngraph::pass::LinOpSequenceFusion>();
-            manager.run_passes(nGraphFunc);
-
-            auto params = LayerTransformation::Params(true,                                                        // updatePrecisions
-                                                      LayerTransformation::QuantizedTensorAlignment::UpdateLevel,  // quantizedTensorAlignmentOnActivations
-                                                      LayerTransformation::QuantizedTensorAlignment::None,         // quantizedTensorAlignmentOnWeights
-                                                      true);                                                       // supportAsymmetricQuantization
-            LowPrecisionTransformer transformer(LowPrecisionTransformer::getAllTransformations(params)
-                .add<MatMulTransformation, ngraph::opset1::MatMul>(LayerTransformation::Params(params)
-                    .setSupportAsymmetricQuantization(false)
-                    .setSupport3DTensorOnActivations(false))
-                .add<ConvolutionBackpropDataTransformation, ngraph::opset1::ConvolutionBackpropData>(LayerTransformation::Params(params)
-                    .setSupportAsymmetricQuantization(false)
-                    .setDeconvolutionSpecificChannelsRatio(true))
-                // INT8 StridedSlice not supported
-                .remove<StridedSliceTransformation, ngraph::opset1::StridedSlice>());
-
-            transformer.transform(nGraphFunc);
-        }
+//        if (enableInt8) {
+//            OV_ITT_SCOPED_TASK(itt::domains::CLDNNPlugin, "clDNNEngine::TransformNetwork::LPT");
+//            using namespace ngraph::pass::low_precision;
+//
+//            ngraph::pass::Manager manager;
+//            // Conversion to FP32 might be needed for quantized models that face any fp16 related issues (e.g. overflow) for non-quantized layers
+//            // With this key users can work-around such issues
+//            if (!config.enable_fp16_for_quantized_models) {
+//                manager.register_pass<ngraph::pass::ConvertPrecision>(precisions_array {{ ngraph::element::f16, ngraph::element::f32 }});
+//            }
+//            auto lptPrerequisites = manager.register_pass<ngraph::pass::GraphRewrite>();
+//            const std::vector<ngraph::element::Type> supportedTypes = { ngraph::element::i8, ngraph::element::u8 };
+//            lptPrerequisites->add_matcher<PullReshapeThroughDequantization>(supportedTypes);
+//            lptPrerequisites->add_matcher<PullTransposeThroughDequantization>(supportedTypes);
+//            lptPrerequisites->add_matcher<ngraph::pass::LinOpSequenceFusion>();
+//            manager.run_passes(nGraphFunc);
+//
+//            auto params = LayerTransformation::Params(true,                                                        // updatePrecisions
+//                                                      LayerTransformation::QuantizedTensorAlignment::UpdateLevel,  // quantizedTensorAlignmentOnActivations
+//                                                      LayerTransformation::QuantizedTensorAlignment::None,         // quantizedTensorAlignmentOnWeights
+//                                                      true);                                                       // supportAsymmetricQuantization
+//            LowPrecisionTransformer transformer(LowPrecisionTransformer::getAllTransformations(params)
+//                .add<MatMulTransformation, ngraph::opset1::MatMul>(LayerTransformation::Params(params)
+//                    .setSupportAsymmetricQuantization(false)
+//                    .setSupport3DTensorOnActivations(false))
+//                .add<ConvolutionBackpropDataTransformation, ngraph::opset1::ConvolutionBackpropData>(LayerTransformation::Params(params)
+//                    .setSupportAsymmetricQuantization(false)
+//                    .setDeconvolutionSpecificChannelsRatio(true))
+//                // INT8 StridedSlice not supported
+//                .remove<StridedSliceTransformation, ngraph::opset1::StridedSlice>());
+//
+//            transformer.transform(nGraphFunc);
+//        }
 
         {
             OV_ITT_SCOPED_TASK(itt::domains::CLDNNPlugin, "clDNNEngine::TransformNetwork::RunPasses");
