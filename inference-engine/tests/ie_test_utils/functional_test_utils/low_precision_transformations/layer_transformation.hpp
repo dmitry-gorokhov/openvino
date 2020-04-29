@@ -54,10 +54,11 @@ public:
     }
 
     InferenceEngine::CNNNetwork transform() {
-        return transform(LayerTransformationParamsFactory::createParamCpu());
+        const InferenceEngine::details::LayerTransformation::Params& params = LayerTransformationParamsFactory::createParamCpu();
+        return transform(params);
     }
 
-    InferenceEngine::CNNNetwork transform(InferenceEngine::details::LayerTransformation::Params& params) {
+    InferenceEngine::CNNNetwork transform(const InferenceEngine::details::LayerTransformation::Params& params) {
         InferenceEngine::details::CNNNetworkImplPtr cnnNetworkImp = cloneNet(InferenceEngine::CNNNetwork(function));
 
         auto transformer = getLowPrecisionTransformer(params);
