@@ -6,7 +6,7 @@
 
 namespace LayerTestsUtils {
 
-LayerTestsCommon::LayerTestsCommon() {
+LayerTestsCommon::LayerTestsCommon() : threshold(1e-2f) {
     core = PluginCache::get().ie(targetDevice);
 }
 
@@ -43,7 +43,7 @@ void LayerTestsCommon::Compare(const std::vector<std::uint8_t> &expected, const 
     switch (precision) {
         case InferenceEngine::Precision::FP32:
             Compare(reinterpret_cast<const float *>(expectedBuffer), reinterpret_cast<const float *>(actualBuffer),
-                    size, 1e-2f);
+                    size, threshold);
             break;
         case InferenceEngine::Precision::I32:
             Compare(reinterpret_cast<const std::int32_t *>(expectedBuffer),

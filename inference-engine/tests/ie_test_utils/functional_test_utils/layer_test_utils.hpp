@@ -281,6 +281,7 @@ protected:
     InferenceEngine::Precision outPrc = InferenceEngine::Precision::UNSPECIFIED;
     InferenceEngine::ExecutableNetwork executableNetwork;
     std::vector<InferenceEngine::Blob::Ptr> inputs;
+    float threshold;
 
     virtual void Validate();
 

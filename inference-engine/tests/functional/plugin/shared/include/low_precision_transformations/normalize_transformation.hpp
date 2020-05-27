@@ -19,7 +19,6 @@ protected:
     void SetUp() override;
 
 private:
-    std::shared_ptr<ngraph::opset1::FakeQuantize> makeFakeQuantize(const ngraph::Output<ngraph::Node>& output);
     void validate();
 };
 
