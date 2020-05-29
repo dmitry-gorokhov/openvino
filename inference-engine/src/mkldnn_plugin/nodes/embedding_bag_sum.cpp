@@ -303,14 +303,35 @@ void MKLDNNEmbeddingBagSum::process_data(
             get_indices(obi, indices, indices_size, weights_idx, with_weights);
             if (indices != nullptr) {
                 with_weights = with_weights & _with_weights;
+
                 for (size_t in_idx = 0lu; in_idx < indices_size; in_idx++) {
                     if (indices[in_idx] >= inDataDims[0])
                         THROW_IE_EXCEPTION << "EmbeddingBagSum layer '" << _l_name
-                            << "' has invalid embedding bag index: " << indices[in_idx];
-                    size_t src_index = src_index = indices[in_idx] * _multipliers[0];
-                    emb_cycle(src_index, dst_index, 1, weights_idx, with_weights);
+                                           << "' has invalid embedding bag index: " << indices[in_idx];
+                    size_t src_index = indices[in_idx] * _multipliers[0];
+
+                    if (with_weights) {
+                        for (size_t i = 0lu; i < _multipliers[0]; i++) {
+                            dst_data[dst_index + i] += src_data[src_index + i] * weights_data[weights_idx];
+                        }
+                    } else {
+                        for (size_t i = 0lu; i < _multipliers[0]; i++) {
+                            dst_data[dst_index + i] += src_data[src_index + i];
+                        }
+                    }
+
                     weights_idx++;
                 }
+
+//                for (size_t in_idx = 0lu; in_idx < indices_size; in_idx++) {
+//                    if (indices[in_idx] >= inDataDims[0])
+//                        THROW_IE_EXCEPTION << "EmbeddingBagSum layer '" << _l_name
+//                            << "' has invalid embedding bag index: " << indices[in_idx];
+//                    size_t src_index = indices[in_idx] * _multipliers[0];
+//                    emb_cycle(src_index, dst_index, 1, weights_idx, with_weights);
+//
+//                    weights_idx++;
+//                }
             }
         }
     };
@@ -364,9 +385,9 @@ void MKLDNNEmbeddingBagSum::process_data(
         }
     };
 
-    if (emb_bag_kernel) {
-        parallel_nt(0, thread_body_jit);
-    } else {
+//    if (emb_bag_kernel) {
+//        parallel_nt(0, thread_body_jit);
+//    } else {
         parallel_nt(0, thread_body);
-    }
+//    }
 }
