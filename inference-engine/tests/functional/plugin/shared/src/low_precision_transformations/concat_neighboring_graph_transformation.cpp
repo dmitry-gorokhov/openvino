@@ -26,6 +26,7 @@ std::pair<float, float> getInterval(const std::vector<InferenceEngine::Precision
     const float hight = unsignedInterval ? 255.f : 127.f;
     return std::make_pair(low, hight);
 }
+
 std::string ConcatNeighboringGraphTransformation::getTestCaseName(testing::TestParamInfo<LayerTestsUtils::LayerTransformationParams> obj) {
     InferenceEngine::Precision netPrecision;
     InferenceEngine::SizeVector inputShapes;
