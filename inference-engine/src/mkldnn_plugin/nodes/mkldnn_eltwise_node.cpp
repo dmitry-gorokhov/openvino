@@ -491,60 +491,42 @@ void MKLDNNEltwiseNode::initSupportedPrimitiveDescriptors() {
         return {config, impl_type, format};
     };
 
-    if (fusedWith.empty()) {
-        for (const auto& format : getAvailableFormatsForDims(getChildEdgeAt(0)->getDims())) {
-            // Precision of implementation is defined by precision of output tensor
-            auto prec = getCnnLayer()->outData[0]->getPrecision();
-            mkldnn::memory::data_type inputDT = MKLDNNExtensionUtils::IEPrecisionToDataType(prec);
-            mkldnn::memory::data_type outputDT = MKLDNNExtensionUtils::IEPrecisionToDataType(prec);
+    auto node_op = this->op;
+    auto ndims = getCnnLayer()->outData[0]->getDims().size();
 
-            // Eltwise compare operation can have the input type different from the output type
-            auto node_op = this->op;
-            bool is_eltwise_compare_node = ((node_op == EltwiseLayer::eOperation::Equal) ||
-                                            (node_op == EltwiseLayer::eOperation::Not_equal) ||
-                                            (node_op == EltwiseLayer::eOperation::Greater) ||
-                                            (node_op == EltwiseLayer::eOperation::Greater_equal) ||
-                                            (node_op == EltwiseLayer::eOperation::Less) ||
-                                            (node_op == EltwiseLayer::eOperation::Less_equal));
-            if (is_eltwise_compare_node) {
-                auto in_prec = getCnnLayer()->insData[0].lock()->getPrecision();
-                inputDT = MKLDNNExtensionUtils::IEPrecisionToDataType(in_prec);
-            }
-
-            if (inputDT == memory::bf16 || outputDT == memory::bf16) {
-                inputDT = memory::f32;
-                outputDT = memory::f32;
-            }
-
-            auto impl_desc = initDesc(inputDT, outputDT, format);
-
-            if (impl_desc.getImplementationType() != impl_desc_type::undef) {
-                supportedPrimitiveDescriptors.push_back(impl_desc);
-            }
-        }
-    } else {
-        auto ndims = getCnnLayer()->outData[0]->getDims().size();
+    if ((node_op == EltwiseLayer::eOperation::Sum || node_op == EltwiseLayer::eOperation::Prod) &&
+        (ndims == 2 || ndims == 4 || ndims == 5) &&
+        mayiuse(cpu::sse42)) {
         auto format = ndims == 2 ? memory::format::nc :
                       ndims == 4 ? memory::format::nhwc :
                       memory::format::ndhwc;
 
         InferenceEngine::LayerConfig config;
         impl_desc_type impl_type = impl_desc_type::ref;
+
         config.dynBatchSupport = true;
         for (size_t i = 0; i < getParentEdges().size(); i++) {
             InferenceEngine::DataConfig dataConfig;
             dataConfig.inPlace = -1;
             dataConfig.constant = false;
-            auto inputDT = MKLDNNExtensionUtils::IEPrecisionToDataType(
-                    getCnnLayer()->insData[i].lock()->getPrecision());
+            auto inputDT = MKLDNNExtensionUtils::IEPrecisionToDataType(getCnnLayer()->insData[i].lock()->getPrecision());
+            if (inputDT == memory::bf16) {
+                inputDT = memory::f32;
+            }
             dataConfig.desc = MKLDNNMemoryDesc(getParentEdgeAt(i)->getDims(), inputDT, format);
             config.inConfs.push_back(dataConfig);
         }
 
         auto outputDT = memory::f32;
-        auto lastFusedLayer = fusedWith[fusedWith.size() - 1].get()->getCnnLayer();
-        if (lastFusedLayer) {
-            outputDT = MKLDNNExtensionUtils::IEPrecisionToDataType(lastFusedLayer->outData[0]->getPrecision());
+        if (!fusedWith.empty()) {
+            auto lastFusedLayer = fusedWith[fusedWith.size() - 1].get()->getCnnLayer();
+            if (lastFusedLayer) {
+                outputDT = MKLDNNExtensionUtils::IEPrecisionToDataType(lastFusedLayer->outData[0]->getPrecision());
+            }
+        }
+
+        if (outputDT == memory::bf16) {
+            outputDT = memory::f32;
         }
 
         InferenceEngine::DataConfig dataConfig;
@@ -572,6 +554,38 @@ void MKLDNNEltwiseNode::initSupportedPrimitiveDescriptors() {
             eltiwse_fq_kernel.reset(new jit_uni_eltwise_fq_generic<cpu::avx2>(jep, *attr.get()));
         } else if (mayiuse(cpu::sse42)) {
             eltiwse_fq_kernel.reset(new jit_uni_eltwise_fq_generic<cpu::sse42>(jep, *attr.get()));
+        }
+    }
+
+    if (fusedWith.empty()) {
+        for (const auto &format : getAvailableFormatsForDims(getChildEdgeAt(0)->getDims())) {
+            // Precision of implementation is defined by precision of output tensor
+            auto prec = getCnnLayer()->outData[0]->getPrecision();
+            mkldnn::memory::data_type inputDT = MKLDNNExtensionUtils::IEPrecisionToDataType(prec);
+            mkldnn::memory::data_type outputDT = MKLDNNExtensionUtils::IEPrecisionToDataType(prec);
+
+            // Eltwise compare operation can have the input type different from the output type
+            bool is_eltwise_compare_node = ((node_op == EltwiseLayer::eOperation::Equal) ||
+                                            (node_op == EltwiseLayer::eOperation::Not_equal) ||
+                                            (node_op == EltwiseLayer::eOperation::Greater) ||
+                                            (node_op == EltwiseLayer::eOperation::Greater_equal) ||
+                                            (node_op == EltwiseLayer::eOperation::Less) ||
+                                            (node_op == EltwiseLayer::eOperation::Less_equal));
+            if (is_eltwise_compare_node) {
+                auto in_prec = getCnnLayer()->insData[0].lock()->getPrecision();
+                inputDT = MKLDNNExtensionUtils::IEPrecisionToDataType(in_prec);
+            }
+
+            if (inputDT == memory::bf16 || outputDT == memory::bf16) {
+                inputDT = memory::f32;
+                outputDT = memory::f32;
+            }
+
+            auto impl_desc = initDesc(inputDT, outputDT, format);
+
+            if (impl_desc.getImplementationType() != impl_desc_type::undef) {
+                supportedPrimitiveDescriptors.push_back(impl_desc);
+            }
         }
     }
 }
@@ -2627,7 +2641,7 @@ void MKLDNNEltwiseNode::execute(mkldnn::stream strm) {
 
         IE_ASSERT(getParentEdges().size() > 1);
 
-        if (!fusedWith.empty()) {
+        if (eltiwse_fq_kernel) {
             jit_eltwise_fq();
         } else {
             // Input and output types for eltwise compare operations can be different
