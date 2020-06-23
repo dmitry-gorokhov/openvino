@@ -28,6 +28,23 @@ using namespace Xbyak;
 
 #define GET_OFF(field) offsetof(jit_eltwise_fq_call_args, field)
 
+template <typename F>
+static inline void parallel_for_blocked(size_t dataSize, F body) {
+    size_t blockSize = 64;
+    size_t blocksNum = dataSize / blockSize;
+    size_t tailSize = dataSize - blocksNum * blockSize;
+
+    parallel_for(blocksNum, [&](size_t ib) {
+        for (size_t i = 0; i < blockSize; i++) {
+            body(ib * blockSize + i);
+        }
+    });
+
+    for (size_t i = 0; i < tailSize; i++) {
+        body(blocksNum * blockSize + i);
+    }
+}
+
 template <cpu_isa_t isa>
 struct jit_uni_eltwise_fq_generic : public jit_uni_eltwise_fq_kernel, public jit_generator {
     DECLARE_CPU_JIT_AUX_FUNCTIONS(jit_uni_eltwise_fq_generic)
@@ -706,7 +723,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_add(
             dst_ptr[i] = src0_ptr[i] + src1_ptr[i];
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = src0_ptr[i] + src1_ptr[i];
         });
 #endif
@@ -718,7 +735,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_add(
                 dst_ptr[i] = dst_ptr[i] + src_ptr[i];
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = dst_ptr[i] + src_ptr[i];
             });
 #endif
@@ -804,7 +821,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_prod(
             dst_ptr[i] = src0_ptr[i] * src1_ptr[i];
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = src0_ptr[i] * src1_ptr[i];
         });
 #endif
@@ -816,7 +833,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_prod(
                 dst_ptr[i] = dst_ptr[i] * src_ptr[i];
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = dst_ptr[i] * src_ptr[i];
             });
 #endif
@@ -900,7 +917,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_max(
             dst_ptr[i] = std::max(src0_ptr[i], (T0)src1_ptr[i]);
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = std::max(src0_ptr[i], (T0)src1_ptr[i]);
         });
 #endif
@@ -912,7 +929,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_max(
                 dst_ptr[i] = std::max(dst_ptr[i], (T0)src_ptr[i]);
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = std::max(dst_ptr[i], (T0)src_ptr[i]);
             });
 #endif
@@ -998,7 +1015,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_sub(
             dst_ptr[i] = src0_ptr[i] - src1_ptr[i];
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = src0_ptr[i] - src1_ptr[i];
         });
 #endif
@@ -1010,7 +1027,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_sub(
                 dst_ptr[i] = dst_ptr[i] - src_ptr[i];
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = dst_ptr[i] - src_ptr[i];
             });
 #endif
@@ -1096,7 +1113,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_min(
             dst_ptr[i] = std::min(src0_ptr[i], (T0)src1_ptr[i]);
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = std::min(src0_ptr[i], (T0)src1_ptr[i]);
         });
 #endif
@@ -1108,7 +1125,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_min(
                 dst_ptr[i] = std::min(dst_ptr[i], (T0)src_ptr[i]);
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = std::min(dst_ptr[i], (T0)src_ptr[i]);
             });
 #endif
@@ -1194,7 +1211,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_div(
             dst_ptr[i] = src0_ptr[i] / src1_ptr[i];
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = src0_ptr[i] / src1_ptr[i];
         });
 #endif
@@ -1206,7 +1223,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_div(
                 dst_ptr[i] = dst_ptr[i] / src_ptr[i];
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = dst_ptr[i] / src_ptr[i];
             });
 #endif
@@ -1292,7 +1309,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_squared_diff
             dst_ptr[i] = (src0_ptr[i] - src1_ptr[i]) * (src0_ptr[i] - src1_ptr[i]);
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = (src0_ptr[i] - src1_ptr[i]) * (src0_ptr[i] - src1_ptr[i]);
         });
 #endif
@@ -1304,7 +1321,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_squared_diff
                 dst_ptr[i] = (dst_ptr[i] - src_ptr[i]) * (dst_ptr[i] - src_ptr[i]);
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = (dst_ptr[i] - src_ptr[i]) * (dst_ptr[i] - src_ptr[i]);
             });
 #endif
@@ -1390,7 +1407,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_floor_mod(
             dst_ptr[i] = src0_ptr[i] - src0_ptr[i] / src1_ptr[i] * src1_ptr[i];
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = src0_ptr[i] - src0_ptr[i] / src1_ptr[i] * src1_ptr[i];
         });
 #endif
@@ -1402,7 +1419,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_floor_mod(
                 dst_ptr[i] = dst_ptr[i] - dst_ptr[i] / src_ptr[i] * src_ptr[i];
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = dst_ptr[i] - dst_ptr[i] / src_ptr[i] * src_ptr[i];
             });
 #endif
@@ -1488,7 +1505,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_pow(
             dst_ptr[i] = std::pow(src0_ptr[i], src1_ptr[i]);
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = std::pow(src0_ptr[i], src1_ptr[i]);
         });
 #endif
@@ -1500,7 +1517,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_pow(
                 dst_ptr[i] = std::pow(dst_ptr[i], src_ptr[i]);
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = std::pow(dst_ptr[i], src_ptr[i]);
             });
 #endif
@@ -1586,7 +1603,7 @@ template <typename T0, typename T1, typename T2> void MKLDNNEltwiseNode::eltwise
             dst_ptr[i] = src0_ptr[i] == src1_ptr[i];
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = src0_ptr[i] == src1_ptr[i];
         });
 #endif
@@ -1598,7 +1615,7 @@ template <typename T0, typename T1, typename T2> void MKLDNNEltwiseNode::eltwise
                 dst_ptr[i] = dst_ptr[i] == src_ptr[i];
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = dst_ptr[i] == src_ptr[i];
             });
 #endif
@@ -1684,7 +1701,7 @@ template <typename T0, typename T1, typename T2> void MKLDNNEltwiseNode::eltwise
             dst_ptr[i] = src0_ptr[i] != src1_ptr[i];
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = src0_ptr[i] != src1_ptr[i];
         });
 #endif
@@ -1696,7 +1713,7 @@ template <typename T0, typename T1, typename T2> void MKLDNNEltwiseNode::eltwise
                 dst_ptr[i] = dst_ptr[i] != src_ptr[i];
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = dst_ptr[i] != src_ptr[i];
             });
 #endif
@@ -1782,7 +1799,7 @@ template <typename T0, typename T1, typename T2> void MKLDNNEltwiseNode::eltwise
             dst_ptr[i] = src0_ptr[i] < src1_ptr[i];
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = src0_ptr[i] < src1_ptr[i];
         });
 #endif
@@ -1794,7 +1811,7 @@ template <typename T0, typename T1, typename T2> void MKLDNNEltwiseNode::eltwise
                 dst_ptr[i] = dst_ptr[i] < src_ptr[i];
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = dst_ptr[i] < src_ptr[i];
             });
 #endif
@@ -1880,7 +1897,7 @@ template <typename T0, typename T1, typename T2> void MKLDNNEltwiseNode::eltwise
             dst_ptr[i] = src0_ptr[i] <= src1_ptr[i];
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = src0_ptr[i] <= src1_ptr[i];
         });
 #endif
@@ -1892,7 +1909,7 @@ template <typename T0, typename T1, typename T2> void MKLDNNEltwiseNode::eltwise
                 dst_ptr[i] = dst_ptr[i] <= src_ptr[i];
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = dst_ptr[i] <= src_ptr[i];
             });
 #endif
@@ -1978,7 +1995,7 @@ template <typename T0, typename T1, typename T2> void MKLDNNEltwiseNode::eltwise
             dst_ptr[i] = src0_ptr[i] > src1_ptr[i];
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = src0_ptr[i] > src1_ptr[i];
         });
 #endif
@@ -1990,7 +2007,7 @@ template <typename T0, typename T1, typename T2> void MKLDNNEltwiseNode::eltwise
                 dst_ptr[i] = dst_ptr[i] > src_ptr[i];
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = dst_ptr[i] > src_ptr[i];
             });
 #endif
@@ -2076,7 +2093,7 @@ template <typename T0, typename T1, typename T2> void MKLDNNEltwiseNode::eltwise
             dst_ptr[i] = src0_ptr[i] >= src1_ptr[i];
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = src0_ptr[i] >= src1_ptr[i];
         });
 #endif
@@ -2088,7 +2105,7 @@ template <typename T0, typename T1, typename T2> void MKLDNNEltwiseNode::eltwise
                 dst_ptr[i] = dst_ptr[i] >= src_ptr[i];
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = dst_ptr[i] >= src_ptr[i];
             });
 #endif
@@ -2174,7 +2191,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_logical_and(
             dst_ptr[i] = src0_ptr[i] && src1_ptr[i];
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = src0_ptr[i] && src1_ptr[i];
         });
 #endif
@@ -2186,7 +2203,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_logical_and(
                 dst_ptr[i] = dst_ptr[i] && src_ptr[i];
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = dst_ptr[i] && src_ptr[i];
             });
 #endif
@@ -2272,7 +2289,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_logical_or(
             dst_ptr[i] = src0_ptr[i] || src1_ptr[i];
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = src0_ptr[i] || src1_ptr[i];
         });
 #endif
@@ -2284,7 +2301,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_logical_or(
                 dst_ptr[i] = dst_ptr[i] || src_ptr[i];
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = dst_ptr[i] || src_ptr[i];
             });
 #endif
@@ -2370,7 +2387,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_logical_xor(
             dst_ptr[i] = (src0_ptr[i] || src1_ptr[i]) - (src0_ptr[i] && src1_ptr[i]);
     }
 #else
-        parallel_for(dst_data_size, [&](size_t i) {
+        parallel_for_blocked(dst_data_size, [&](size_t i) {
             dst_ptr[i] = (src0_ptr[i] || src1_ptr[i]) - (src0_ptr[i] && src1_ptr[i]);
         });
 #endif
@@ -2382,7 +2399,7 @@ template <typename T0, typename T1> void MKLDNNEltwiseNode::eltwise_logical_xor(
                 dst_ptr[i] = (dst_ptr[i] || src_ptr[i]) - (dst_ptr[i] && src_ptr[i]);
             }
 #else
-            parallel_for(dst_data_size, [&](size_t i) {
+            parallel_for_blocked(dst_data_size, [&](size_t i) {
                 dst_ptr[i] = (dst_ptr[i] || src_ptr[i]) - (dst_ptr[i] && src_ptr[i]);
             });
 #endif

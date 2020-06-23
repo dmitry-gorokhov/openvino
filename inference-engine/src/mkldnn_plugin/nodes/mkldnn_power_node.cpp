@@ -86,6 +86,23 @@ void MKLDNNPowerNode::createPrimitive() {
         THROW_IE_EXCEPTION << "Preferable primitive descriptor is not set.";
 }
 
+template <typename F>
+static inline void parallel_for_blocked(size_t dataSize, F body) {
+    size_t blockSize = 64;
+    size_t blocksNum = dataSize / blockSize;
+    size_t tailSize = dataSize - blocksNum * blockSize;
+
+    parallel_for(blocksNum, [&](size_t ib) {
+        for (size_t i = 0; i < blockSize; i++) {
+            body(ib * blockSize + i);
+        }
+    });
+
+    for (size_t i = 0; i < tailSize; i++) {
+        body(blocksNum * blockSize + i);
+    }
+}
+
 void MKLDNNPowerNode::execute(mkldnn::stream strm) {
     auto& srcMemory = getParentEdgeAt(0)->getMemory();
     auto& dstMemory = getChildEdgeAt(0)->getMemory();
@@ -97,31 +114,31 @@ void MKLDNNPowerNode::execute(mkldnn::stream strm) {
             dstMemory.GetDescriptor().data.layout_desc.blocking.offset_padding;
 
     if (power == -1.f) {
-        parallel_for(data_size, [&](size_t i) {
+        parallel_for_blocked(data_size, [&](size_t i) {
             float val = src_ptr[i] * scale + shift;
             dst_ptr[i] = 1 / val;
         });
     } else if (power == 0.5f) {
-        parallel_for(data_size, [&](size_t i) {
+        parallel_for_blocked(data_size, [&](size_t i) {
             float val = src_ptr[i] * scale + shift;
             dst_ptr[i] = sqrtf(val);
         });
     } else if (power == 1.0f) {
-        parallel_for(data_size, [&](size_t i) {
+        parallel_for_blocked(data_size, [&](size_t i) {
             dst_ptr[i] = src_ptr[i] * scale + shift;
         });
     } else if (power == 2.0f) {
-        parallel_for(data_size, [&](size_t i) {
+        parallel_for_blocked(data_size, [&](size_t i) {
             float val = src_ptr[i] * scale + shift;
             dst_ptr[i] = val * val;
         });
     } else if (power == 3.0f) {
-        parallel_for(data_size, [&](size_t i) {
+        parallel_for_blocked(data_size, [&](size_t i) {
             float val = src_ptr[i] * scale + shift;
             dst_ptr[i] = val * val * val;
         });
     } else {
-        parallel_for(data_size, [&](size_t i) {
+        parallel_for_blocked(data_size, [&](size_t i) {
             dst_ptr[i] = pow(src_ptr[i] * scale + shift, power);
         });
     }

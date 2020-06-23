@@ -333,15 +333,15 @@ inline void splitter(const T& n, const Q& team, const Q& tid, T& n_start, T& n_e
     n_end += n_start;
 }
 
-template <typename T0, typename F>
-void for_1d(const int& ithr, const int& nthr, const T0& D0, const F& func) {
+template <typename T0>
+void for_1d(const int& ithr, const int& nthr, const T0& D0, const std::function<void(size_t)>& func) {
     T0 d0 {0}, end {0};
     splitter(D0, nthr, ithr, d0, end);
     for (; d0 < end; ++d0) func(d0);
 }
 
-template <typename T0, typename F>
-void parallel_for(const T0& D0, const F& func) {
+template <typename T0>
+void parallel_for(const T0& D0, const std::function<void(size_t)>& func) {
 #if IE_THREAD == IE_THREAD_TBB
     auto work_amount = static_cast<size_t>(D0);
     int nthr = parallel_get_max_threads();
@@ -369,8 +369,8 @@ void parallel_for(const T0& D0, const F& func) {
 #endif
 }
 
-template <typename T0, typename T1, typename F>
-void for_2d(const int& ithr, const int& nthr, const T0& D0, const T1& D1, const F& func) {
+template <typename T0, typename T1>
+void for_2d(const int& ithr, const int& nthr, const T0& D0, const T1& D1, const std::function<void(size_t, size_t)>& func) {
     const size_t work_amount = (size_t)D0 * D1;
     if (work_amount == 0) return;
     size_t start {0}, end {0};
@@ -385,8 +385,8 @@ void for_2d(const int& ithr, const int& nthr, const T0& D0, const T1& D1, const 
     }
 }
 
-template <typename T0, typename T1, typename F>
-void parallel_for2d(const T0& D0, const T1& D1, const F& func) {
+template <typename T0, typename T1>
+void parallel_for2d(const T0& D0, const T1& D1, const std::function<void(size_t, size_t)>& func) {
 #if IE_THREAD == IE_THREAD_TBB
     auto work_amount = static_cast<size_t>(D0 * D1);
     int nthr = parallel_get_max_threads();
@@ -414,8 +414,8 @@ void parallel_for2d(const T0& D0, const T1& D1, const F& func) {
 #endif
 }
 
-template <typename T0, typename T1, typename T2, typename F>
-void for_3d(const int& ithr, const int& nthr, const T0& D0, const T1& D1, const T2& D2, const F& func) {
+template <typename T0, typename T1, typename T2>
+void for_3d(const int& ithr, const int& nthr, const T0& D0, const T1& D1, const T2& D2, const std::function<void(size_t, size_t, size_t)>& func) {
     const size_t work_amount = (size_t)D0 * D1 * D2;
     if (work_amount == 0) return;
     size_t start {0}, end {0};
@@ -431,8 +431,8 @@ void for_3d(const int& ithr, const int& nthr, const T0& D0, const T1& D1, const 
     }
 }
 
-template <typename T0, typename T1, typename T2, typename F>
-void parallel_for3d(const T0& D0, const T1& D1, const T2& D2, const F& func) {
+template <typename T0, typename T1, typename T2>
+void parallel_for3d(const T0& D0, const T1& D1, const T2& D2, const std::function<void(size_t, size_t, size_t)>& func) {
 #if IE_THREAD == IE_THREAD_TBB
     auto work_amount = static_cast<size_t>(D0 * D1 * D2);
     int nthr = parallel_get_max_threads();
@@ -460,8 +460,9 @@ void parallel_for3d(const T0& D0, const T1& D1, const T2& D2, const F& func) {
 #endif
 }
 
-template <typename T0, typename T1, typename T2, typename T3, typename F>
-void for_4d(const int& ithr, const int& nthr, const T0& D0, const T1& D1, const T2& D2, const T3& D3, const F& func) {
+template <typename T0, typename T1, typename T2, typename T3>
+void for_4d(const int& ithr, const int& nthr, const T0& D0, const T1& D1, const T2& D2, const T3& D3,
+            const std::function<void(size_t, size_t, size_t, size_t)>& func) {
     const size_t work_amount = (size_t)D0 * D1 * D2 * D3;
     if (work_amount == 0) return;
     size_t start {0}, end {0};
@@ -478,8 +479,8 @@ void for_4d(const int& ithr, const int& nthr, const T0& D0, const T1& D1, const 
     }
 }
 
-template <typename T0, typename T1, typename T2, typename T3, typename F>
-void parallel_for4d(const T0& D0, const T1& D1, const T2& D2, const T3& D3, const F& func) {
+template <typename T0, typename T1, typename T2, typename T3>
+void parallel_for4d(const T0& D0, const T1& D1, const T2& D2, const T3& D3, const std::function<void(size_t, size_t, size_t, size_t)>& func) {
 #if IE_THREAD == IE_THREAD_TBB
     auto work_amount = static_cast<size_t>(D0 * D1 * D2 * D3);
     int nthr = parallel_get_max_threads();
@@ -507,9 +508,9 @@ void parallel_for4d(const T0& D0, const T1& D1, const T2& D2, const T3& D3, cons
 #endif
 }
 
-template <typename T0, typename T1, typename T2, typename T3, typename T4, typename F>
+template <typename T0, typename T1, typename T2, typename T3, typename T4>
 void for_5d(const int& ithr, const int& nthr, const T0& D0, const T1& D1, const T2& D2, const T3& D3, const T4& D4,
-            const F& func) {
+            const std::function<void(size_t, size_t, size_t, size_t, size_t)>& func) {
     const size_t work_amount = (size_t)D0 * D1 * D2 * D3 * D4;
     if (work_amount == 0) return;
     size_t start {0}, end {0};
@@ -527,8 +528,9 @@ void for_5d(const int& ithr, const int& nthr, const T0& D0, const T1& D1, const 
     }
 }
 
-template <typename T0, typename T1, typename T2, typename T3, typename T4, typename F>
-void parallel_for5d(const T0& D0, const T1& D1, const T2& D2, const T3& D3, const T4& D4, const F& func) {
+template <typename T0, typename T1, typename T2, typename T3, typename T4>
+void parallel_for5d(const T0& D0, const T1& D1, const T2& D2, const T3& D3, const T4& D4,
+                    const std::function<void(size_t, size_t, size_t, size_t, size_t)>& func) {
 #if IE_THREAD == IE_THREAD_TBB
     auto work_amount = static_cast<size_t>(D0 * D1 * D2 * D3 * D4);
     int nthr = parallel_get_max_threads();
