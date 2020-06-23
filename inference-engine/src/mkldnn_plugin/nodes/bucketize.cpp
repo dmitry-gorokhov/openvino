@@ -11,7 +11,7 @@
 #include <cassert>
 #include <algorithm>
 #include <limits>
-#include "ie_parallel.hpp"
+#include "common/cpu_parallel.hpp"
 
 namespace InferenceEngine {
 namespace Extensions {
@@ -195,7 +195,7 @@ private:
         }
 
         // boundaries are assumed to be sorted and to have unique elements
-        parallel_for(num_values, [&](size_t ind) {
+        cpu_parallel_for(num_values, [&](size_t ind) {
             T value = input_data[ind];
             if (with_right) {
                 auto low = std::lower_bound(boundaries_data, boundaries_data + num_bin_values, value);

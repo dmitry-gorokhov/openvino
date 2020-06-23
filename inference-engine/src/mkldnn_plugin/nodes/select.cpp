@@ -6,7 +6,7 @@
 
 #include <string>
 #include <vector>
-#include "ie_parallel.hpp"
+#include "common/cpu_parallel.hpp"
 
 namespace InferenceEngine {
 namespace Extensions {
@@ -203,7 +203,7 @@ private:
 
         if (broadcast == "none") {
             size_t dstDataSize = std::accumulate(begin(resDims), end(resDims), 1, std::multiplies<size_t>());
-            parallel_for(dstDataSize, [&](size_t i) {
+            cpu_parallel_for(dstDataSize, [&](size_t i) {
                 dstData[i] = conditionData[i] ? thenData[i] : elseData[i];
             });
         } else {

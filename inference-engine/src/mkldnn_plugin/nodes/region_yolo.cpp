@@ -8,7 +8,7 @@
 #include <vector>
 #include <algorithm>
 #include <memory>
-#include <ie_parallel.hpp>
+#include "common/cpu_parallel.hpp"
 #include "jit_generator.hpp"
 #include "jit_uni_eltwise.hpp"
 
@@ -211,7 +211,7 @@ public:
         int IC = (inputs[0]->getTensorDesc().getDims().size() > 1) ? inputs[0]->getTensorDesc().getDims()[1] : 1;
         int B = (inputs[0]->getTensorDesc().getDims().size() > 0) ? inputs[0]->getTensorDesc().getDims()[0] : 1;
 
-        parallel_for(B * IC * IH * IW, [&](int i) {
+        cpu_parallel_for(B * IC * IH * IW, [&](int i) {
             dst_data[i] = src_data[i];
         });
 

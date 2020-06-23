@@ -11,7 +11,7 @@
 #include <cmath>
 #include <mkldnn_types.h>
 #include <mkldnn_extension_utils.h>
-#include "ie_parallel.hpp"
+#include "common/cpu_parallel.hpp"
 #include "common/cpu_memcpy.h"
 
 using namespace mkldnn;
@@ -198,7 +198,7 @@ inline void process_gemm(char transa, char transb, int M, int N, int K, float al
     const int32_t co = 0;
     int32_t *Ci = reinterpret_cast<int32_t *>(C);
     mkldnn_gemm_u8s8s32(transa, transb, 'F', M, N, K, alpha, A, lda, 0, B, ldb, 0, beta, Ci, ldc, &co);
-    parallel_for(M * N, [&](size_t i) {
+    cpu_parallel_for(M * N, [&](size_t i) {
         C[i] = Ci[i];
     });
 }
@@ -208,7 +208,7 @@ inline void process_gemm(char transa, char transb, int M, int N, int K, float al
     const int32_t co = 0;
     int32_t *Ci = reinterpret_cast<int32_t *>(C);
     mkldnn_gemm_s8s8s32(transa, transb, 'F', M, N, K, alpha, A, lda, 0, B, ldb, 0, beta, Ci, ldc, &co);
-    parallel_for(M * N, [&](size_t i) {
+    cpu_parallel_for(M * N, [&](size_t i) {
         C[i] = Ci[i];
     });
 }

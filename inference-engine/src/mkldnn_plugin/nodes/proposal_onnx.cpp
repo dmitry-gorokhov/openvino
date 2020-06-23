@@ -14,7 +14,7 @@
 #if defined(HAVE_AVX2)
 #include <immintrin.h>
 #endif
-#include "ie_parallel.hpp"
+#include "common/cpu_parallel.hpp"
 
 
 namespace {
@@ -108,7 +108,7 @@ void refine_anchors(const float* deltas, const float* scores, const float* ancho
 }
 
 static void unpack_boxes(const float* p_proposals, float* unpacked_boxes, int pre_nms_topn) {
-    parallel_for(pre_nms_topn, [&](size_t i) {
+    cpu_parallel_for(pre_nms_topn, [&](size_t i) {
         unpacked_boxes[0*pre_nms_topn + i] = p_proposals[5*i + 0];
         unpacked_boxes[1*pre_nms_topn + i] = p_proposals[5*i + 1];
         unpacked_boxes[2*pre_nms_topn + i] = p_proposals[5*i + 2];
@@ -252,7 +252,7 @@ void fill_output_blobs(const float* proposals, const int* roi_indices,
     const float *src_y1 = proposals + 3 * num_proposals;
     const float *src_score = proposals + 4 * num_proposals;
 
-    parallel_for(num_rois, [&](size_t i) {
+    cpu_parallel_for(num_rois, [&](size_t i) {
         int index = roi_indices[i];
         rois[i * 4 + 0] = src_x0[index];
         rois[i * 4 + 1] = src_y0[index];

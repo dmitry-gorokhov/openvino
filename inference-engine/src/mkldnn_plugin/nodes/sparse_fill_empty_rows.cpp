@@ -11,7 +11,7 @@
 #include <cassert>
 #include <algorithm>
 #include <limits>
-#include "ie_parallel.hpp"
+#include "common/cpu_parallel.hpp"
 
 namespace InferenceEngine {
 namespace Extensions {
@@ -107,7 +107,7 @@ public:
 
         // create auxiliary container for sorting
         std::vector<std::array<float, 3>> indices_values(in_actual_num_values);
-        parallel_for(in_actual_num_values, [&](size_t i) {
+        cpu_parallel_for(in_actual_num_values, [&](size_t i) {
             float row = input_indices_ptr[2 * i];
             float col = input_indices_ptr[2 * i + 1];
             float value = input_values_ptr[i];
@@ -124,7 +124,7 @@ public:
         // unsplit indices and values
         std::vector<float> indices_with_sorted_rows(in_actual_num_values * 2);
         std::vector<float> values_for_sorted_rows(in_actual_num_values);
-        parallel_for(in_actual_num_values, [&](size_t i) {
+        cpu_parallel_for(in_actual_num_values, [&](size_t i) {
             auto elem = indices_values[i];
             indices_with_sorted_rows[i * 2] = elem[0];
             indices_with_sorted_rows[i * 2 + 1] = elem[1];

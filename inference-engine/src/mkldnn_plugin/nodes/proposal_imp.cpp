@@ -13,7 +13,7 @@
 #if defined(HAVE_AVX2)
 #include <immintrin.h>
 #endif
-#include "ie_parallel.hpp"
+#include "common/cpu_parallel.hpp"
 
 namespace InferenceEngine {
 namespace Extensions {
@@ -109,7 +109,7 @@ void enumerate_proposals_cpu(const float* bottom4d, const float* d_anchor4d, con
 
 static void unpack_boxes(const float* p_proposals, float* unpacked_boxes, int pre_nms_topn, bool store_prob) {
     if (store_prob) {
-        parallel_for(pre_nms_topn, [&](size_t i) {
+        cpu_parallel_for(pre_nms_topn, [&](size_t i) {
             unpacked_boxes[0 * pre_nms_topn + i] = p_proposals[5 * i + 0];
             unpacked_boxes[1 * pre_nms_topn + i] = p_proposals[5 * i + 1];
             unpacked_boxes[2 * pre_nms_topn + i] = p_proposals[5 * i + 2];
@@ -117,7 +117,7 @@ static void unpack_boxes(const float* p_proposals, float* unpacked_boxes, int pr
             unpacked_boxes[4 * pre_nms_topn + i] = p_proposals[5 * i + 4];
         });
     } else {
-        parallel_for(pre_nms_topn, [&](size_t i) {
+        cpu_parallel_for(pre_nms_topn, [&](size_t i) {
             unpacked_boxes[0 * pre_nms_topn + i] = p_proposals[5 * i + 0];
             unpacked_boxes[1 * pre_nms_topn + i] = p_proposals[5 * i + 1];
             unpacked_boxes[2 * pre_nms_topn + i] = p_proposals[5 * i + 2];

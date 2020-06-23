@@ -7,7 +7,7 @@
 #include <cmath>
 #include <string>
 #include <vector>
-#include "ie_parallel.hpp"
+#include "common/cpu_parallel.hpp"
 #include "ie_precision.hpp"
 
 namespace InferenceEngine {
@@ -23,7 +23,7 @@ class ConvertImpl: public ExtLayerBase {
                           outputs->getTensorDesc().getBlockingDesc().getOffsetPadding();
         if (inputs->size() != outputs->size())
             THROW_IE_EXCEPTION << "Input and output buffers have different sizes!";
-        parallel_for(inputs->size(), [&](size_t i) {
+        cpu_parallel_for(inputs->size(), [&](size_t i) {
             dst_data[i] = static_cast<dst_d>(src_data[i]);
         });
     }

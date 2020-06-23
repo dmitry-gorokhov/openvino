@@ -9,7 +9,7 @@
 #include <mkldnn_types.h>
 #include <mkldnn_extension_utils.h>
 #include <limits>
-#include "ie_parallel.hpp"
+#include "common/cpu_parallel.hpp"
 
 using namespace mkldnn;
 using namespace MKLDNNPlugin;
@@ -97,31 +97,31 @@ void MKLDNNPowerNode::execute(mkldnn::stream strm) {
             dstMemory.GetDescriptor().data.layout_desc.blocking.offset_padding;
 
     if (power == -1.f) {
-        parallel_for(data_size, [&](size_t i) {
+        cpu_parallel_for(data_size, [&](size_t i) {
             float val = src_ptr[i] * scale + shift;
             dst_ptr[i] = 1 / val;
         });
     } else if (power == 0.5f) {
-        parallel_for(data_size, [&](size_t i) {
+        cpu_parallel_for(data_size, [&](size_t i) {
             float val = src_ptr[i] * scale + shift;
             dst_ptr[i] = sqrtf(val);
         });
     } else if (power == 1.0f) {
-        parallel_for(data_size, [&](size_t i) {
+        cpu_parallel_for(data_size, [&](size_t i) {
             dst_ptr[i] = src_ptr[i] * scale + shift;
         });
     } else if (power == 2.0f) {
-        parallel_for(data_size, [&](size_t i) {
+        cpu_parallel_for(data_size, [&](size_t i) {
             float val = src_ptr[i] * scale + shift;
             dst_ptr[i] = val * val;
         });
     } else if (power == 3.0f) {
-        parallel_for(data_size, [&](size_t i) {
+        cpu_parallel_for(data_size, [&](size_t i) {
             float val = src_ptr[i] * scale + shift;
             dst_ptr[i] = val * val * val;
         });
     } else {
-        parallel_for(data_size, [&](size_t i) {
+        cpu_parallel_for(data_size, [&](size_t i) {
             dst_ptr[i] = pow(src_ptr[i] * scale + shift, power);
         });
     }

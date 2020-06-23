@@ -8,7 +8,7 @@
 #include <string>
 #include <cmath>
 #include <limits>
-#include "ie_parallel.hpp"
+#include "common/cpu_parallel.hpp"
 
 namespace InferenceEngine {
 namespace Extensions {
@@ -297,7 +297,7 @@ public:
         }
 
         if (_clip) {
-            parallel_for((H * W * _num_priors * 4), [&](size_t i) {
+            cpu_parallel_for((H * W * _num_priors * 4), [&](size_t i) {
                 dst_data[i] = (std::min)((std::max)(dst_data[i], 0.0f), 1.0f);
             });
         }
@@ -305,11 +305,11 @@ public:
         size_t channel_size = OH * OW;
         dst_data += channel_size;
         if (_variance.size() == 1) {
-            parallel_for(channel_size, [&](size_t i) {
+            cpu_parallel_for(channel_size, [&](size_t i) {
                 dst_data[i] = _variance[0];
             });
         } else {
-            parallel_for((H * W * _num_priors), [&](size_t i) {
+            cpu_parallel_for((H * W * _num_priors), [&](size_t i) {
                 for (size_t j = 0; j < 4; ++j) {
                     dst_data[i * 4 + j] = _variance[j];
                 }
