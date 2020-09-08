@@ -46,103 +46,103 @@ using namespace InferenceEngine;
 MKLDNNGraphOptimizer::MKLDNNGraphOptimizer() {}
 
 void MKLDNNGraphOptimizer::ApplyCommonGraphOptimizations(MKLDNNGraph &graph) {
-    MergeTwoEqualScaleShifts(graph);
-    graph.RemoveDroppedNodes();
-
-    MergeSigmoidAndMultiplyToSwish(graph);
-    graph.RemoveDroppedNodes();
-
-    MergeConversions(graph);
-    graph.RemoveDroppedNodes();
-
-    FuseBroadcastAndEltwise(graph);
-    graph.RemoveDroppedNodes();
-
-    FuseClampAndQuantize(graph);
-    graph.RemoveDroppedNodes();
-
-    FuseScaleShiftAndQuantize(graph);
-    graph.RemoveDroppedNodes();
-
-    MergeGroupConvolution(graph);
-    graph.RemoveDroppedNodes();
-
-    FuseConvolutionAndZeroPoints(graph);
-    graph.RemoveDroppedNodes();
-
-#if defined (COMPILED_CPU_MKLDNN_DEPTHWISE_NODE)
-    FuseConvolutionAndDepthwise(graph);
-    graph.RemoveDroppedNodes();
-#endif
-
-#if defined(COMPILED_CPU_MKLDNN_ACTIVATION_NODE)
-    FuseConvolutionAndActivation(graph);
-    graph.RemoveDroppedNodes();
-#endif
-
-#if defined (COMPILED_CPU_MKLDNN_DEPTHWISE_NODE)
-    FuseConvolutionAndDepthwise(graph);
-    graph.RemoveDroppedNodes();
-#endif
-
-    FuseConvolutionAndQuantize(graph);
-    graph.RemoveDroppedNodes();
-
-    graph.SortTopologically();
-    graph.RemoveDroppedEdges();
-
-#if defined (COMPILED_CPU_MKLDNN_DEPTHWISE_NODE)
-    FuseConvolutionAndDepthwise(graph);
-    graph.RemoveDroppedNodes();
-#endif
-
-    FusePoolingAndQuantize(graph);
-    graph.RemoveDroppedNodes();
-
-    graph.SortTopologically();
-    graph.RemoveDroppedEdges();
-
-    FuseConvolutionAndDWConvolution(graph);
-    graph.RemoveDroppedNodes();
-
-#if defined(COMPILED_CPU_MKLDNN_QUANTIZE_NODE)
-    FuseBinaryConvolutionAndQuantize(graph);
-    graph.RemoveDroppedNodes();
-#endif
-
-    FuseBatchNormWithScale(graph);
-    graph.RemoveDroppedNodes();
-
-    RemoveIdentityOperator(graph);
-    graph.RemoveDroppedNodes();
-
-#if defined(COMPILED_CPU_MKLDNN_ELTWISE_NODE)
-    FuseConvolutionSumAndConvolutionSumActivation(graph);
-    graph.RemoveDroppedNodes();
-#endif
-
-    FuseConvolutionAndSimpleOperation(graph);
-    graph.RemoveDroppedNodes();
-
-    FuseFullyConnectedAndSimpleOperation(graph);
-    graph.RemoveDroppedNodes();
-
-    FuseMVNAndSimpleOperation(graph);
-    graph.RemoveDroppedNodes();
-
-    FuseResampleAndSimpleOperation(graph);
-    graph.RemoveDroppedNodes();
-
-    FuseInterpolateAndSimpleOperation(graph);
-    graph.RemoveDroppedNodes();
-
-    FuseNormalizeAndSimpleOperation(graph);
-    graph.RemoveDroppedNodes();
-
-    FuseEltwiseAndSimple(graph);
-    graph.RemoveDroppedNodes();
-
-    graph.RemoveDroppedEdges();
+//    MergeTwoEqualScaleShifts(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    MergeSigmoidAndMultiplyToSwish(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    MergeConversions(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    FuseBroadcastAndEltwise(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    FuseClampAndQuantize(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    FuseScaleShiftAndQuantize(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    MergeGroupConvolution(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    FuseConvolutionAndZeroPoints(graph);
+//    graph.RemoveDroppedNodes();
+//
+//#if defined (COMPILED_CPU_MKLDNN_DEPTHWISE_NODE)
+//    FuseConvolutionAndDepthwise(graph);
+//    graph.RemoveDroppedNodes();
+//#endif
+//
+//#if defined(COMPILED_CPU_MKLDNN_ACTIVATION_NODE)
+//    FuseConvolutionAndActivation(graph);
+//    graph.RemoveDroppedNodes();
+//#endif
+//
+//#if defined (COMPILED_CPU_MKLDNN_DEPTHWISE_NODE)
+//    FuseConvolutionAndDepthwise(graph);
+//    graph.RemoveDroppedNodes();
+//#endif
+//
+//    FuseConvolutionAndQuantize(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    graph.SortTopologically();
+//    graph.RemoveDroppedEdges();
+//
+//#if defined (COMPILED_CPU_MKLDNN_DEPTHWISE_NODE)
+//    FuseConvolutionAndDepthwise(graph);
+//    graph.RemoveDroppedNodes();
+//#endif
+//
+//    FusePoolingAndQuantize(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    graph.SortTopologically();
+//    graph.RemoveDroppedEdges();
+//
+//    FuseConvolutionAndDWConvolution(graph);
+//    graph.RemoveDroppedNodes();
+//
+//#if defined(COMPILED_CPU_MKLDNN_QUANTIZE_NODE)
+//    FuseBinaryConvolutionAndQuantize(graph);
+//    graph.RemoveDroppedNodes();
+//#endif
+//
+//    FuseBatchNormWithScale(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    RemoveIdentityOperator(graph);
+//    graph.RemoveDroppedNodes();
+//
+//#if defined(COMPILED_CPU_MKLDNN_ELTWISE_NODE)
+//    FuseConvolutionSumAndConvolutionSumActivation(graph);
+//    graph.RemoveDroppedNodes();
+//#endif
+//
+//    FuseConvolutionAndSimpleOperation(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    FuseFullyConnectedAndSimpleOperation(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    FuseMVNAndSimpleOperation(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    FuseResampleAndSimpleOperation(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    FuseInterpolateAndSimpleOperation(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    FuseNormalizeAndSimpleOperation(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    FuseEltwiseAndSimple(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    graph.RemoveDroppedEdges();
 }
 
 void MKLDNNGraphOptimizer::ApplyImplSpecificGraphOptimizations(MKLDNNGraph &graph) {

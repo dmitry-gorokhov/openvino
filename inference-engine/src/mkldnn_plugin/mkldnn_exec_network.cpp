@@ -65,7 +65,7 @@ MKLDNNExecNetwork::MKLDNNExecNetwork(const InferenceEngine::ICNNNetwork &network
             addCleanup<ScaleShiftToConvolutionTransformation>(
                 LayerTransformation::Params(params).setPrecisionsOnActivations({ Precision::U8 }),
                 "ScaleShift"));
-        transformer.transform(*_clonedNetwork);
+//        transformer.transform(*_clonedNetwork);
 
         // Check if network is INT8 or Binary.
         // BF16 transformations were disabled since CPU plug-in doesn't support mixed precision execution:
