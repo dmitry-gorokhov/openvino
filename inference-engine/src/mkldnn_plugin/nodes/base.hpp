@@ -6,6 +6,8 @@
 
 #include <ie_iextension.h>
 #include "nodes/list.hpp"
+#include "common/tensor_desc_creator.h"
+#include "ngraph/descriptor/tensor.hpp"
 #include <ie_ngraph_utils.hpp>
 
 #include <string>
@@ -54,6 +56,61 @@ public:
     }
 
 protected:
+    class DataConfigurator {
+    public:
+        explicit DataConfigurator(MKLDNNPlugin::TensorDescCreatorTypes tensorDescType):
+                tensorDescType(tensorDescType) {}
+
+        DataConfigurator(MKLDNNPlugin::TensorDescCreatorTypes tensorDescType, Precision prc):
+                tensorDescType(tensorDescType), prc(prc) {}
+
+        DataConfigurator(MKLDNNPlugin::TensorDescCreatorTypes tensorDescType, Precision prc, bool constant, int inplace = -1):
+                tensorDescType(tensorDescType), prc(prc), constant(constant), inplace(inplace) {}
+
+        const MKLDNNPlugin::TensorDescCreatorTypes tensorDescType;
+        const bool constant = false;
+        const int inplace = -1;
+        const Precision prc = Precision::UNSPECIFIED; // By default ngraph node precision is used
+    };
+
+    void addConfig(const std::shared_ptr<ngraph::Node>& op,
+                   const std::vector<DataConfigurator>& inDataConfigurators,
+                   const std::vector<DataConfigurator>& outDataConfigurators,
+                   bool dynBatchSupport = false) {
+        LayerConfig config;
+
+        if (inDataConfigurators.size() != op->get_input_size())
+            THROW_IE_EXCEPTION << "Cannot add config for operation " << op->get_friendly_name() << ". Incorrect number of inputs: " <<
+                                  "expected: " << op->get_input_size() << ", provided: " << inDataConfigurators.size();
+        if (outDataConfigurators.size() != op->get_output_size())
+            THROW_IE_EXCEPTION << "Cannot add config for operation " << op->get_friendly_name() << ". Incorrect number of outputs: " <<
+                               "expected: " << op->get_output_size() << ", provided: " << outDataConfigurators.size();
+
+        auto fill_port = [] (const DataConfigurator& dataConfigurator, const ngraph::descriptor::Tensor& tensor, std::vector<DataConfig>& port) {
+            auto& creators = MKLDNNPlugin::TensorDescCreator::getCommonCreators();
+            if (creators.find(dataConfigurator.tensorDescType) == creators.end()) {
+                THROW_IE_EXCEPTION << "Cannot find tensor descriptor creator";
+            }
+            auto precision = dataConfigurator.prc != Precision::UNSPECIFIED ? dataConfigurator.prc : details::convertPrecision(tensor.get_element_type());
+
+            DataConfig dataConfig;
+            dataConfig.inPlace = dataConfigurator.inplace;
+            dataConfig.constant = dataConfigurator.constant;
+            dataConfig.desc = creators.at(dataConfigurator.tensorDescType)->createDesc(precision, tensor.get_shape());
+
+            port.push_back(dataConfig);
+        };
+
+        for (size_t i = 0; i < inDataConfigurators.size(); i++)
+            fill_port(inDataConfigurators[i], op->get_input_tensor(i), config.inConfs);
+
+        for (size_t i = 0; i < outDataConfigurators.size(); i++)
+            fill_port(outDataConfigurators[i], op->get_output_tensor(i), config.outConfs);
+
+        config.dynBatchSupport = dynBatchSupport;
+        confs.push_back(config);
+    }
+
     std::string errorMsg;
     std::vector<LayerConfig> confs;
 };

@@ -22,6 +22,8 @@ namespace InferenceEngine {
 namespace Extensions {
 namespace Cpu {
 
+using MKLDNNPlugin::TensorDescCreatorTypes;
+
 class GatherImpl: public ExtLayerBase {
 public:
     explicit GatherImpl(const std::shared_ptr<ngraph::Node>& op) {
@@ -33,7 +35,7 @@ public:
                 THROW_IE_EXCEPTION << "CPU Gather node doesn't support ngraph operation "
                     << gatherOp->get_type_name() << " with name " << gatherOp->get_friendly_name();
 
-            if (gatherOp->get_input_size() != 3 || gatherOp->get_output_size() == 0)
+            if (gatherOp->get_input_size() != 3 || gatherOp->get_output_size() != 1)
                 THROW_IE_EXCEPTION << errorPrefix_ << "has incorrect number of input/output edges!";
 
             Precision inIdxPrecision = details::convertPrecision(gatherOp->get_input_element_type(GATHER_INDEXES));
@@ -65,24 +67,12 @@ public:
             if (dataLength == 0)
                 THROW_IE_EXCEPTION << errorPrefix_ << "had incorrect input parameters dimension!";
 
-            LayerConfig config;
-            DataConfig dataConfigIdx, dataConfigDct, dataConfigAxis;
             Precision dataPrecision = details::convertPrecision(gatherOp->get_input_element_type(GATHER_DICTIONARY));
-            dataConfigDct.desc = TensorDesc(dataPrecision, dictionary_dims, TensorDesc::getLayoutByDims(dictionary_dims));
-            config.inConfs.push_back(dataConfigDct);
-            const SizeVector& indexes_dims = gatherOp->get_input_shape(GATHER_INDEXES);
-            dataConfigIdx.desc = TensorDesc(inIdxPrecision, indexes_dims, TensorDesc::getLayoutByDims(indexes_dims));
-            config.inConfs.push_back(dataConfigIdx);
-            const SizeVector& axis_dims = gatherOp->get_input_shape(GATHER_AXIS);
-            dataConfigAxis.desc = TensorDesc(Precision::I32, axis_dims, TensorDesc::getLayoutByDims(axis_dims));
-            config.inConfs.push_back(dataConfigAxis);
 
-            DataConfig dataConfigOut;
-            const SizeVector& out_dims = gatherOp->get_output_shape(0);
-            dataConfigOut.desc = TensorDesc(dataPrecision, out_dims, TensorDesc::getLayoutByDims(out_dims));
-            config.outConfs.push_back(dataConfigOut);
-            config.dynBatchSupport = false;
-            confs.push_back(config);
+            addConfig(op, {{TensorDescCreatorTypes::ncsp, dataPrecision},
+                           {TensorDescCreatorTypes::ncsp, inIdxPrecision},
+                           {TensorDescCreatorTypes::ncsp, Precision::I32}},
+                          {{TensorDescCreatorTypes::ncsp, dataPrecision}});
         } catch (InferenceEngine::details::InferenceEngineException &ex) {
             errorMsg = ex.what();
             throw;
