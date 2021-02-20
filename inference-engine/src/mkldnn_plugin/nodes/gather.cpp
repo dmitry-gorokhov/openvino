@@ -26,15 +26,36 @@ using MKLDNNPlugin::TensorDescCreatorTypes;
 
 class GatherImpl: public ExtLayerBase {
 public:
+    static bool isSupportedParams(const std::shared_ptr<ngraph::Node>& op, std::string& errorMessage) noexcept {
+        try {
+            auto gatherOp = ngraph::as_type_ptr<ngraph::op::v1::Gather>(op);
+            if (!gatherOp) {
+                errorMessage = "Only opset1 Gather operation is supported";
+                return false;
+            }
+
+            auto axesOp = gatherOp->get_input_node_shared_ptr(GATHER_AXIS);
+            if (!ngraph::as_type_ptr<ngraph::op::Constant>(axesOp)) {
+                errorMessage = "Only Constant operation on 'axis' input is supported";
+                return false;
+            }
+        } catch (...) {
+            return false;
+        }
+
+        return true;
+    }
+
     explicit GatherImpl(const std::shared_ptr<ngraph::Node>& op) {
         try {
             errorPrefix_ = std::string("Layer Gather with name '") + op->get_friendly_name() + "' ";
 
-            auto gatherOp = ngraph::as_type_ptr<ngraph::op::v1::Gather>(op);
-            if (!gatherOp)
-                THROW_IE_EXCEPTION << "CPU Gather node doesn't support ngraph operation "
-                    << gatherOp->get_type_name() << " with name " << gatherOp->get_friendly_name();
+            std::string errorMessage;
+            if (!isSupportedParams(op, errorMessage)) {
+                THROW_IE_EXCEPTION_WITH_STATUS(NOT_IMPLEMENTED) << errorMessage;
+            }
 
+            auto gatherOp = ngraph::as_type_ptr<ngraph::op::v1::Gather>(op);
             if (gatherOp->get_input_size() != 3 || gatherOp->get_output_size() != 1)
                 THROW_IE_EXCEPTION << errorPrefix_ << "has incorrect number of input/output edges!";
 
@@ -46,16 +67,12 @@ public:
             if (dictionary_dims.size() == 0)
                 THROW_IE_EXCEPTION << errorPrefix_ << "has incorrect input parameters dimension!";
 
-            auto axesOp = gatherOp->get_input_node_shared_ptr(GATHER_AXIS);
-            if (!ngraph::as_type_ptr<ngraph::op::Constant>(axesOp))
-                THROW_IE_EXCEPTION << errorPrefix_ << "supports only Constant op on 'axis' input.";
-
             axis = static_cast<int>(gatherOp->get_axis());
             if (axis < 0)
                 axis += dictionary_dims.size();
             // Dictionary must be at least rank axis + 1
-            IE_ASSERT(-static_cast<int>(dictionary_dims.size()) <= axis && axis < static_cast<int>(dictionary_dims.size()))
-                << errorPrefix_ << "has incorrect input parameters dimensions and axis number!";
+            if (!(-static_cast<int>(dictionary_dims.size()) <= axis && axis < static_cast<int>(dictionary_dims.size())))
+                THROW_IE_EXCEPTION << errorPrefix_ << "has incorrect input parameters dimensions and axis number!";
 
             //  Find number of dictionaries, index range and data length
             for (int i = 0; i < axis; i++)
@@ -148,9 +165,9 @@ private:
     size_t numDictionaries = 1;
     size_t indexRange = 0;
     size_t dataLength = 1;
-    const size_t GATHER_DICTIONARY = 0;
-    const size_t GATHER_INDEXES = 1;
-    const size_t GATHER_AXIS = 2;
+    static const size_t GATHER_DICTIONARY = 0;
+    static const size_t GATHER_INDEXES = 1;
+    static const size_t GATHER_AXIS = 2;
 
     std::string errorPrefix_;
 };

@@ -125,7 +125,8 @@ public:
         try {
             impls.push_back(ILayerImpl::Ptr(new IMPL(ngraphOp)));
         } catch (const details::InferenceEngineException& ex) {
-            return ex.getStatus();
+            strncpy(resp->msg, ex.what(), sizeof(resp->msg) - 1);
+            return ex.getStatus() != OK ? ex.getStatus() : GENERAL_ERROR;
         }
         return OK;
     }
