@@ -851,6 +851,10 @@ void MKLDNNGraphOptimizer::FuseConvolutionAndDepthwise(MKLDNNGraph &graph) {
 void MKLDNNGraphOptimizer::FuseConvolutionAndDWConvolution(MKLDNNGraph &graph) {
     auto& graphNodes = graph.GetNodes();
 
+    if (!mkldnn::impl::cpu::mayiuse(impl::cpu::cpu_isa_t::sse42)) {
+        return;
+    }
+
     auto isConvolutionNode = [](MKLDNNNodePtr node) {
         return node->getType() == Convolution;
     };
