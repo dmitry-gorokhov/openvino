@@ -26,16 +26,16 @@ using MKLDNNPlugin::TensorDescCreatorTypes;
 
 class GatherImpl: public ExtLayerBase {
 public:
-    static bool isSupportedParams(const std::shared_ptr<ngraph::Node>& op, std::string& errorMessage) noexcept {
+    static bool isSupportedOperation(const ngraph::Node& op, std::string& errorMessage) noexcept {
         try {
-            auto gatherOp = ngraph::as_type_ptr<ngraph::op::v1::Gather>(op);
+            auto gatherOp = ngraph::as_type<const ngraph::op::v1::Gather>(&op);
             if (!gatherOp) {
                 errorMessage = "Only opset1 Gather operation is supported";
                 return false;
             }
 
             auto axesOp = gatherOp->get_input_node_shared_ptr(GATHER_AXIS);
-            if (!ngraph::as_type_ptr<ngraph::op::Constant>(axesOp)) {
+            if (!ngraph::as_type_ptr<const ngraph::op::Constant>(axesOp)) {
                 errorMessage = "Only Constant operation on 'axis' input is supported";
                 return false;
             }
@@ -51,7 +51,7 @@ public:
             errorPrefix_ = std::string("Layer Gather with name '") + op->get_friendly_name() + "' ";
 
             std::string errorMessage;
-            if (!isSupportedParams(op, errorMessage)) {
+            if (!isSupportedOperation(*op, errorMessage)) {
                 THROW_IE_EXCEPTION_WITH_STATUS(NOT_IMPLEMENTED) << errorMessage;
             }
 

@@ -58,19 +58,24 @@ public:
 protected:
     class DataConfigurator {
     public:
-        explicit DataConfigurator(MKLDNNPlugin::TensorDescCreatorTypes tensorDescType):
-                tensorDescType(tensorDescType) {}
+        DataConfigurator(MKLDNNPlugin::TensorDescCreatorTypes tensorDescType, Precision prc = Precision::UNSPECIFIED, bool constant = false, int inplace = -1) :
+                tensorDescCreator(getTensorDescCreator(tensorDescType)), prc(prc), constant(constant), inplace(inplace) {}
 
-        DataConfigurator(MKLDNNPlugin::TensorDescCreatorTypes tensorDescType, Precision prc):
-                tensorDescType(tensorDescType), prc(prc) {}
+        DataConfigurator(const MKLDNNPlugin::TensorDescCreator::CreatorConstPtr& tensorDescCreator, Precision prc = Precision::UNSPECIFIED,
+                bool constant = false, int inplace = -1) : tensorDescCreator(tensorDescCreator), prc(prc), constant(constant), inplace(inplace) {}
 
-        DataConfigurator(MKLDNNPlugin::TensorDescCreatorTypes tensorDescType, Precision prc, bool constant, int inplace = -1):
-                tensorDescType(tensorDescType), prc(prc), constant(constant), inplace(inplace) {}
-
-        const MKLDNNPlugin::TensorDescCreatorTypes tensorDescType;
+        const MKLDNNPlugin::TensorDescCreator::CreatorConstPtr tensorDescCreator;
         const bool constant = false;
         const int inplace = -1;
         const Precision prc = Precision::UNSPECIFIED; // By default ngraph node precision is used
+    private:
+        static MKLDNNPlugin::TensorDescCreator::CreatorConstPtr getTensorDescCreator(MKLDNNPlugin::TensorDescCreatorTypes tensorDescType) {
+            auto& creators = MKLDNNPlugin::TensorDescCreator::getCommonCreators();
+            if (creators.find(tensorDescType) == creators.end()) {
+                THROW_IE_EXCEPTION << "Cannot find tensor descriptor creator";
+            }
+            return creators.at(tensorDescType);
+        }
     };
 
     void addConfig(const std::shared_ptr<ngraph::Node>& op,
@@ -86,26 +91,31 @@ protected:
             THROW_IE_EXCEPTION << "Cannot add config for operation " << op->get_friendly_name() << ". Incorrect number of outputs: " <<
                                "expected: " << op->get_output_size() << ", provided: " << outDataConfigurators.size();
 
-        auto fill_port = [] (const DataConfigurator& dataConfigurator, const ngraph::descriptor::Tensor& tensor, std::vector<DataConfig>& port) {
-            auto& creators = MKLDNNPlugin::TensorDescCreator::getCommonCreators();
-            if (creators.find(dataConfigurator.tensorDescType) == creators.end()) {
-                THROW_IE_EXCEPTION << "Cannot find tensor descriptor creator";
-            }
+        auto fill_port = [] (const DataConfigurator& dataConfigurator, const ngraph::descriptor::Tensor& tensor, std::vector<DataConfig>& port) -> bool {
+            // In order to simplify particular node initialization logic we just don't add config in case target shape is not supported by tensorDescCreator.
+            // This should be suitable for major of scenarios since almost all nodes add `ncsp` tensorDescCreator which supports any shape rank.
+            if (tensor.get_shape().size() < dataConfigurator.tensorDescCreator->getMinimalRank())
+                return false;
+
             auto precision = dataConfigurator.prc != Precision::UNSPECIFIED ? dataConfigurator.prc : details::convertPrecision(tensor.get_element_type());
 
             DataConfig dataConfig;
             dataConfig.inPlace = dataConfigurator.inplace;
             dataConfig.constant = dataConfigurator.constant;
-            dataConfig.desc = creators.at(dataConfigurator.tensorDescType)->createDesc(precision, tensor.get_shape());
+            dataConfig.desc = dataConfigurator.tensorDescCreator->createDesc(precision, tensor.get_shape());
 
             port.push_back(dataConfig);
+
+            return true;
         };
 
         for (size_t i = 0; i < inDataConfigurators.size(); i++)
-            fill_port(inDataConfigurators[i], op->get_input_tensor(i), config.inConfs);
+            if (!fill_port(inDataConfigurators[i], op->get_input_tensor(i), config.inConfs))
+                return;
 
         for (size_t i = 0; i < outDataConfigurators.size(); i++)
-            fill_port(outDataConfigurators[i], op->get_output_tensor(i), config.outConfs);
+            if (!fill_port(outDataConfigurators[i], op->get_output_tensor(i), config.outConfs))
+                return;
 
         config.dynBatchSupport = dynBatchSupport;
         confs.push_back(config);
