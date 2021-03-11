@@ -1,9 +1,8 @@
-// Copyright (C) 2018-2020 Intel Corporation
+// Copyright (C) 2018-2021 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
 #include "mkldnn_crop_node.h"
-#include <legacy/ie_layers.h>
 #include <string>
 #include <algorithm>
 #include <mkldnn_types.h>
@@ -16,99 +15,204 @@ using namespace mkldnn;
 using namespace MKLDNNPlugin;
 using namespace InferenceEngine;
 
+bool MKLDNNCropNode::isSupportedOperation(const std::shared_ptr<const ngraph::Node>& op, std::string& errorMessage) noexcept {
+    try {
+        auto stridedSlice = ngraph::as_type_ptr<const ngraph::op::v1::StridedSlice>(op);
+        if (!stridedSlice) {
+            errorMessage = "Node is not an instance of the StridedSlice operation.";
+            return false;
+        }
+        auto beginNode = ngraph::as_type_ptr<ngraph::op::v0::Constant>(stridedSlice->get_input_node_shared_ptr(1));
+        auto endNode = ngraph::as_type_ptr<ngraph::op::v0::Constant>(stridedSlice->get_input_node_shared_ptr(2));
+        if (!beginNode || !endNode) {
+            errorMessage = "Constant expected as the second and third inputs.";
+            return false;
+        }
+        if (stridedSlice->get_input_size() > 3) {
+            auto strideNode = ngraph::as_type_ptr<ngraph::op::v0::Constant>(stridedSlice->get_input_node_shared_ptr(3));
+            if (!strideNode) {
+                errorMessage = "Constant expected as the fourth input.";
+                return false;
+            }
+
+            auto strideData = strideNode->cast_vector<int32_t>();
+            for (auto & s : strideData) {
+                if (s != 1) {
+                    errorMessage = "Crop supports just a single stride.";
+                    return false;
+                }
+            }
+        }
+    } catch (...) {
+        return false;
+    }
+    return true;
+}
+
 MKLDNNCropNode::MKLDNNCropNode(const std::shared_ptr<ngraph::Node>& op, const mkldnn::engine& eng, MKLDNNWeightsSharing::Ptr &cache) :
-        MKLDNNNode(op, eng, cache) {}
+        MKLDNNNode(op, eng, cache) {
+    std::string errorMessage;
+    if (!isSupportedOperation(op, errorMessage)) {
+        THROW_IE_EXCEPTION_WITH_STATUS(NOT_IMPLEMENTED) << errorMessage;
+    }
+
+    auto stridedSlice = ngraph::as_type_ptr<const ngraph::op::v1::StridedSlice>(op);
+    auto beginNode = ngraph::as_type_ptr<ngraph::op::v0::Constant>(stridedSlice->get_input_node_shared_ptr(1));
+
+    auto beginData = beginNode->cast_vector<int64_t>();
+
+    auto inputShape = stridedSlice->get_input_shape(0);
+
+    auto convertToSet = [](const std::vector<int64_t>& mask) {
+        std::set<size_t> axisSet{};
+        for (size_t i = 0lu; i < static_cast<size_t>(mask.size()); ++i) {
+            if (mask[i] == 1) {
+                axisSet.emplace(i);
+            }
+        }
+        return axisSet;
+    };
+
+    auto shrinkAxisMask = convertToSet(stridedSlice->get_shrink_axis_mask());
+    auto newAxisMask = convertToSet(stridedSlice->get_new_axis_mask());
+    auto ellipsisMask = convertToSet(stridedSlice->get_ellipsis_mask());
+    auto beginMask = convertToSet(stridedSlice->get_begin_mask());
+
+    std::vector<int64_t> axes, offsets;
+
+    size_t inputShapeIdx = 0lu;
+    uint64_t uniqId = 0;
+    for (size_t axis = 0lu; axis < beginData.size(); ++axis) {
+        // add dimensions hidden under the ellipsis mask if ellipsis mask is set
+        if (ellipsisMask.count(axis)) {
+            // only one bit in ellipsis mask is allowed
+            int numNewAxisAfterEllipses = 0;
+            int numInputAxisBeforeEllipses = 0;
+            for (size_t i = 0lu; i < axis; ++i) {
+                if (!newAxisMask.count(i))
+                    numInputAxisBeforeEllipses++;
+            }
+            for (size_t i = axis + 1; i < beginData.size(); ++i) {
+                if (newAxisMask.count(i))
+                    numNewAxisAfterEllipses++;
+            }
+
+            // -1 because it's a position of ellipses
+            size_t numInputAxisAfterEllipses = (beginData.size() - axis - numNewAxisAfterEllipses - 1);
+            size_t numOfHiddenDims = inputShape.size() - numInputAxisAfterEllipses
+                                               - numInputAxisBeforeEllipses;
+            for (size_t i = 0; i < numOfHiddenDims; ++i) {
+                axes.emplace_back(uniqId);
+                uniqId++;
+                offsets.emplace_back(0);
+
+                inputShapeIdx++;
+            }
+        } else {
+            // add new single dimension if newAxisMask is set
+            if (newAxisMask.count(axis)) {
+                offsets.emplace_back(0);
+            } else if (shrinkAxisMask.count(axis)) {
+                // skip this dimension if shrinkAxisMask is set (inputShapeIdx++)
+                offsets.emplace_back(beginMask.count(axis) ? 0 : beginData[axis]);
+                inputShapeIdx++;
+            } else {
+                int64_t lb = beginData[axis];
+                // convert negative indexes to positive
+                if (lb < 0)
+                    lb = std::max(static_cast<int64_t>(inputShape[inputShapeIdx]) + lb,
+                                  static_cast<int64_t>(0));
+                // apply restrictions when beginData values more/less than max/min possible values.
+                lb = std::min(static_cast<int64_t>(inputShape[inputShapeIdx]), lb);
+                offsets.emplace_back(lb);
+                inputShapeIdx++;
+            }
+            axes.emplace_back(uniqId);
+            uniqId++;
+        }
+    }
+    for (; inputShapeIdx < inputShape.size(); ++inputShapeIdx) {
+        offsets.emplace_back(0);
+        axes.emplace_back(uniqId);
+        uniqId++;
+    }
+
+    auto outputShape = stridedSlice->get_output_shape(0);
+
+    this->offsets.resize(static_cast<size_t>(outputShape.size()));  // plus one dim for batch
+    this->dims.resize(static_cast<size_t>(outputShape.size()));     // plus one dim for batch
+    for (int i = 0; i < outputShape.size(); i++)
+        this->dims[i] = outputShape[i];
+
+    for (int i = 0; i < axes.size(); i++) {
+        this->offsets[axes[i]] = offsets[i];
+    }
+
+    channelAxis = 1;
+    if (axes.size() == this->dims.size()) {
+        for (size_t i = 0lu; i < axes.size(); i++) {
+            if (axes[i] == 1) {
+                channelAxis = static_cast<int>(i);
+                break;
+            }
+        }
+    }
+}
 
 void MKLDNNCropNode::getSupportedDescriptors() {
-    THROW_IE_EXCEPTION << "Not implemented";
-    // TODO [NM]: reimplement w/o using CNNLayer
-//    CropLayer* cropLayer = dynamic_cast<CropLayer*>(getCnnLayer().get());
-//
-//    if (cropLayer == nullptr)
-//        THROW_IE_EXCEPTION << "Cannot convert crop layer.";
-//
-//    channelAxis = 1;
-//    if (getParentEdges().size() != 1 && getParentEdges().size() != 2) {
-//        THROW_IE_EXCEPTION << "Incorrect number of input edges for layer " << getName();
-//    }
-//
-//    MKLDNNDims childDims = getChildEdgeAt(0)->getDims();
-//
-//    offsets.resize(static_cast<size_t>(childDims.ndims()));  // plus one dim for batch
-//    dims.resize(static_cast<size_t>(childDims.ndims()));     // plus one dim for batch
-//    for (int i = 0; i < childDims.ndims(); i++)
-//        dims[i] = childDims[i];
-//
-//    for (int i = 0; i < cropLayer->axis.size(); i++) {
-//        offsets[cropLayer->axis[i]] = cropLayer->offset[i];
-//    }
-//
-//    if (cropLayer->axis.size() == dims.size()) {
-//        for (size_t i = 0; i < cropLayer->axis.size(); i++) {
-//            if (cropLayer->axis[i] == 1) {
-//                channelAxis = static_cast<int>(i);
-//                break;
-//            }
-//        }
-//    }
-//
-//    if (!getChildEdges().size())
-//        THROW_IE_EXCEPTION << "Incorrect number of output edges for layer " << getName();
 }
 
 void MKLDNNCropNode::initSupportedPrimitiveDescriptors() {
-    THROW_IE_EXCEPTION << "Not implemented";
-    // TODO [NM]: reimplement w/o using CNNLayer
-//    if (!supportedPrimitiveDescriptors.empty())
-//        return;
-//
-//    InferenceEngine::Precision precision = getCnnLayer()->insData[0].lock()->getPrecision();
-//    auto inputDataType = MKLDNNExtensionUtils::IEPrecisionToDataType(precision);
-//    precision = getCnnLayer()->outData[0]->getPrecision();
-//    auto outputDataType = MKLDNNExtensionUtils::IEPrecisionToDataType(precision);
-//    if (inputDataType != outputDataType) {
-//        outputDataType = inputDataType; // Crop doesn't convert precisions, only moves data
-//    }
-//
-//    auto& inDims = getParentEdgeAt(0)->getDims();
-//    if (inDims.ndims() != 2 && inDims.ndims() != 4 && inDims.ndims() != 5) {
-//        THROW_IE_EXCEPTION << "Crop supports only 2d, 4d and 5d blobs.";
-//    }
-//
-//    memory::format_tag fmt = memory::format_tag::undef;
-//    switch (inDims.ndims()) {
-//        case 2: fmt = memory::format_tag::nc; break;
-//        case 4: fmt = memory::format_tag::nchw; break;
-//        case 5: fmt = memory::format_tag::ncdhw; break;
-//    }
-//
-//    InferenceEngine::LayerConfig config;
-//    config.dynBatchSupport = true;
-//    config.inConfs.resize(getParentEdges().size());
-//    config.outConfs.resize(1);
-//    for (size_t i = 0; i < getParentEdges().size(); i++) {
-//        config.inConfs[i].inPlace = -1;
-//        config.inConfs[i].constant = i != 0;
-//        config.inConfs[i].desc = MKLDNNMemoryDesc(getParentEdgeAt(i)->getDims(), inputDataType, fmt);
-//    }
-//    config.outConfs[0].inPlace = -1;
-//    config.outConfs[0].constant = false;
-//    config.outConfs[0].desc = MKLDNNMemoryDesc(getChildEdgeAt(0)->getDims(), outputDataType, fmt);
-//
-//    supportedPrimitiveDescriptors.emplace_back(config, impl_desc_type::unknown, fmt);
-//
-//    if ((inDims.ndims() == 4 || inDims.ndims() == 5) && channelAxis >= 0 && dims[channelAxis] % 8 == 0) {
-//        fmt = inDims.ndims() == 5 ? memory::format_tag::nCdhw8c : memory::format_tag::nChw8c;
-//        config.inConfs[0].desc = MKLDNNMemoryDesc(getParentEdgeAt(0)->getDims(), inputDataType, fmt);
-//        config.outConfs[0].desc = MKLDNNMemoryDesc(getChildEdgeAt(0)->getDims(), outputDataType, fmt);
-//        supportedPrimitiveDescriptors.emplace_back(config, impl_desc_type::unknown, fmt);
-//        if (dims[channelAxis] % 16 == 0) {
-//            fmt = inDims.ndims() == 5 ? memory::format_tag::nCdhw16c : memory::format_tag::nChw16c;
-//            config.inConfs[0].desc = MKLDNNMemoryDesc(getParentEdgeAt(0)->getDims(), inputDataType, fmt);
-//            config.outConfs[0].desc = MKLDNNMemoryDesc(getChildEdgeAt(0)->getDims(), outputDataType, fmt);
-//            supportedPrimitiveDescriptors.emplace_back(config, impl_desc_type::unknown, fmt);
-//        }
-//    }
+    if (!supportedPrimitiveDescriptors.empty())
+        return;
+
+    InferenceEngine::Precision precision = getOriginalInputPrecisionAtPort(0);
+    auto inputDataType = MKLDNNExtensionUtils::IEPrecisionToDataType(precision);
+    precision = getOriginalOutputPrecisionAtPort(0);
+    auto outputDataType = MKLDNNExtensionUtils::IEPrecisionToDataType(precision);
+    if (inputDataType != outputDataType) {
+        outputDataType = inputDataType; // Crop doesn't convert precisions, only moves data
+    }
+
+    auto& inDims = getParentEdgeAt(0)->getDims();
+    if (inDims.ndims() != 2 && inDims.ndims() != 4 && inDims.ndims() != 5) {
+        THROW_IE_EXCEPTION << "Crop supports only 2d, 4d and 5d blobs.";
+    }
+
+    memory::format_tag fmt = memory::format_tag::undef;
+    switch (inDims.ndims()) {
+        case 2: fmt = memory::format_tag::nc; break;
+        case 4: fmt = memory::format_tag::nchw; break;
+        case 5: fmt = memory::format_tag::ncdhw; break;
+    }
+
+    InferenceEngine::LayerConfig config;
+    config.dynBatchSupport = true;
+    config.inConfs.resize(getParentEdges().size());
+    config.outConfs.resize(1);
+    for (size_t i = 0; i < getParentEdges().size(); i++) {
+        config.inConfs[i].inPlace = -1;
+        config.inConfs[i].constant = i != 0;
+        config.inConfs[i].desc = MKLDNNMemoryDesc(getParentEdgeAt(i)->getDims(), inputDataType, i == 0 ? fmt : memory::format_tag::x);
+    }
+    config.outConfs[0].inPlace = -1;
+    config.outConfs[0].constant = false;
+    config.outConfs[0].desc = MKLDNNMemoryDesc(getChildEdgeAt(0)->getDims(), outputDataType, fmt);
+
+    supportedPrimitiveDescriptors.emplace_back(config, impl_desc_type::unknown, fmt);
+
+    if ((inDims.ndims() == 4 || inDims.ndims() == 5) && channelAxis >= 0 && dims[channelAxis] % 8 == 0) {
+        fmt = inDims.ndims() == 5 ? memory::format_tag::nCdhw8c : memory::format_tag::nChw8c;
+        config.inConfs[0].desc = MKLDNNMemoryDesc(getParentEdgeAt(0)->getDims(), inputDataType, fmt);
+        config.outConfs[0].desc = MKLDNNMemoryDesc(getChildEdgeAt(0)->getDims(), outputDataType, fmt);
+        supportedPrimitiveDescriptors.emplace_back(config, impl_desc_type::unknown, fmt);
+        if (dims[channelAxis] % 16 == 0) {
+            fmt = inDims.ndims() == 5 ? memory::format_tag::nCdhw16c : memory::format_tag::nChw16c;
+            config.inConfs[0].desc = MKLDNNMemoryDesc(getParentEdgeAt(0)->getDims(), inputDataType, fmt);
+            config.outConfs[0].desc = MKLDNNMemoryDesc(getChildEdgeAt(0)->getDims(), outputDataType, fmt);
+            supportedPrimitiveDescriptors.emplace_back(config, impl_desc_type::unknown, fmt);
+        }
+    }
 }
 
 void MKLDNNCropNode::createPrimitive() {
