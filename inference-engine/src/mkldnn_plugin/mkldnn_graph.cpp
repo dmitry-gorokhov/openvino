@@ -335,7 +335,7 @@ void MKLDNNGraph::InitGraph() {
     SortTopologically();
     InitNodes();
 
-    optimizer.ApplyCommonGraphOptimizations(*this);
+//    optimizer.ApplyCommonGraphOptimizations(*this);
     SortTopologically();
 
     InitDescriptors();
