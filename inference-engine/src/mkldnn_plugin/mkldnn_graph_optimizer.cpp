@@ -410,6 +410,9 @@ void MKLDNNGraphOptimizer::FuseConvolutionAndZeroPoints(MKLDNNGraph &graph) {
         int OC = node->getChildEdgesAtPort(0)[0]->getDims()[1];
 
         if (parent0->getType() == Eltwise) {
+            if (!parent0->getFusedWith().empty() || !parent1->getFusedWith().empty())
+                return false;
+
             // The plug-in doesn't support FP32 convolution with input/weights zero points.
             // In case weights are in FP32 (or we have zero points on weights which are not supported by INT8 convolution) we cannot use
             // INT8 implementation so we have to disable input zero points fusing as well.
@@ -417,7 +420,6 @@ void MKLDNNGraphOptimizer::FuseConvolutionAndZeroPoints(MKLDNNGraph &graph) {
                 return false;
             }
 
-//            auto* eltwiseNode = dynamic_cast<MKLDNNEltwiseNode *>(parent0.get());
             if (parent0->getAlgorithm() != Algorithm::EltwiseSubtract)
                 return false;
 
@@ -433,9 +435,14 @@ void MKLDNNGraphOptimizer::FuseConvolutionAndZeroPoints(MKLDNNGraph &graph) {
                     return false;
                 }
 
-                if (parent0->getParentEdgesAtPort(1)[0]->getDims()[1] != 1 &&
-                    parent0->getParentEdgesAtPort(1)[0]->getDims()[1] != IC)
+                auto zpDims = parent0->getParentEdgesAtPort(1)[0]->getDims();
+                if (zpDims[0] != 1 || zpDims[1] != IC)
                     return false;
+
+                for (int i = 2; i < zpDims.ndims(); i++) {
+                    if (zpDims[i] != 1)
+                        return false;
+                }
 
                 auto arg1 = parent0->getParentEdgesAtPort(0)[0]->getParent();
                 if (arg1->getOriginalOutputPrecisionAtPort(0) != Precision::U8)
@@ -470,67 +477,10 @@ void MKLDNNGraphOptimizer::FuseConvolutionAndZeroPoints(MKLDNNGraph &graph) {
         return true;
     };
 
-//    auto initializeWeightsZeroPoints = [](MKLDNNNodePtr node, MKLDNNNodePtr parent0) {
-//        auto* convNode = dynamic_cast<MKLDNNConvolutionNode*>(node.get());
-//        if (convNode == nullptr)
-//            THROW_IE_EXCEPTION << "Cannot get convolution node " << node->getName();
-//
-//        int OC = node->getChildEdgesAtPort(0)[0]->getDims()[1];
-//
-//        if (parent0->getType() == Eltwise) {
-//            auto* eltwiseNode = dynamic_cast<MKLDNNEltwiseNode *>(parent0.get());
-//            if (eltwiseNode->getOpType() != Subtract)
-//                return false;
-//
-//            if (parent0->getParentEdges().size() != 2)
-//                return false;
-//
-//            if (parent0->getParentEdgesAtPort(1)[0]->getParent()->getCnnLayer()->type == "Const") {
-//                auto arg0 = parent0->getParentEdgesAtPort(1)[0]->getParent();
-//                if (arg0->getCnnLayer()->outData[0]->getPrecision() != Precision::I8)
-//                    return false;
-//
-//                if (parent0->getParentEdgesAtPort(1)[0]->getDims()[0] != 1 &&
-//                    parent0->getParentEdgesAtPort(1)[0]->getDims()[0] != OC)
-//                    return false;
-//
-//                auto arg1 = parent0->getParentEdgesAtPort(0)[0]->getParent();
-//                if (arg1->getCnnLayer()->outData[0]->getPrecision() != Precision::I8)
-//                    return false;
-//
-//                auto zeroPointsBlob = dynamic_cast<TBlob<int8_t>*>(arg0->getCnnLayer()->blobs["custom"].get());
-//                if (zeroPointsBlob == nullptr)
-//                    THROW_IE_EXCEPTION << "Cannot cast to TBlob internal zero points blob";
-//
-//                auto zeroPointsData = zeroPointsBlob->buffer().as<int8_t*>();
-//                if (zeroPointsData == nullptr)
-//                    THROW_IE_EXCEPTION << "zeroPointsBlob has not allocated buffer";
-//
-//                for (int j = 0; j < parent0->getParentEdgesAtPort(1)[0]->getDims()[0]; j++) {
-//                    convNode->weightsZeroPoints.push_back(static_cast<float>(zeroPointsData[j]));
-//                }
-//            } else {
-//                return false;
-//            }
-//        } else {
-//            return false;
-//        }
-//
-//        return true;
-//    };
-
     auto initializeOutputCompensation = [](MKLDNNNodePtr node) {
         auto* convNode = dynamic_cast<MKLDNNConvolutionNode*>(node.get());
         if (convNode == nullptr)
             THROW_IE_EXCEPTION << "Cannot get convolution node " << node->getName();
-
-//        auto * convLayer = dynamic_cast<ConvolutionLayer*>(convNode->getCnnLayer().get());
-//        if (convLayer == nullptr)
-//            THROW_IE_EXCEPTION << "Cannot get eltwise layer " << node->getName();
-
-//        for (int i = 0; i < convNode->insData.size(); i++)
-//            if (convLayer->insData[i].lock() == nullptr)
-//                THROW_IE_EXCEPTION << "Node '"<< node->getName() << "' has invalid input data with index " << i;
 
         if (convNode->inputZeroPoints.empty())
             return;
@@ -596,15 +546,6 @@ void MKLDNNGraphOptimizer::FuseConvolutionAndZeroPoints(MKLDNNGraph &graph) {
 
             graph.DropNode(dataEltwise);
         }
-
-// [TODO] Weights zero point is not supported on oneDNN side for the moment
-//        auto weightsEltwise = conv->getParentEdgesAtPort(1)[0]->getParent();
-//        if (initializeWeightsZeroPoints(conv, weightsEltwise)) {
-//            auto p_edge = weightsEltwise->getParentEdgesAtPort(1)[0];
-//            removeEdge(graph, p_edge);
-//
-//            graph.DropNode(weightsEltwise);
-//        }
 
         initializeOutputCompensation(conv);
     }
