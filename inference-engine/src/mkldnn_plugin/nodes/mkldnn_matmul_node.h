@@ -40,6 +40,7 @@ public:
     size_t getChannelAxis() const override {
         return getOutputShapeAtPort(0).getRank() - 1;
     }
+    const std::vector<impl_desc_type>& getPrimitivesPriority() override;
 
 protected:
     AttrPtr initPrimitiveAttr() override;
