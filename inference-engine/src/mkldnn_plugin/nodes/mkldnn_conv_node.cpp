@@ -378,7 +378,8 @@ void MKLDNNConvolutionNode::setPostOps(mkldnn::primitive_attr &attr, bool initWe
     int blob_idx = 0;
     mkldnn::post_ops ops;
 
-    for (auto &node : fusedWith) {
+    for (int i = 0; i < fusedWith.size(); i++) {
+        auto& node = fusedWith[i];
         if (node->getType() == Split || node->getType() == Concatenation)
             continue;
 
@@ -395,6 +396,29 @@ void MKLDNNConvolutionNode::setPostOps(mkldnn::primitive_attr &attr, bool initWe
 
         auto* quantizeNode = dynamic_cast<MKLDNNQuantizeNode *>(node.get());
         if (quantizeNode) {
+            bool hasSubsequentSum = false;
+            bool hasSubsequentFQ = false;
+            for (int j = i + 1; j < fusedWith.size(); j++) {
+                auto& nextNode = fusedWith[j];
+
+                auto* nextEltwiseNode = dynamic_cast<MKLDNNEltwiseNode *>(nextNode.get());
+                if (nextEltwiseNode && nextEltwiseNode->isSum()) {
+                    hasSubsequentSum = true;
+                }
+
+                auto* nextQuantizeNode = dynamic_cast<MKLDNNQuantizeNode *>(nextNode.get());
+                if (nextQuantizeNode) {
+                    hasSubsequentFQ = true;
+                }
+            }
+
+            if (quantizeNode->getOpType() == QuantizeOpType::FakeQuantization &&
+                hasSubsequentSum &&
+                hasSubsequentFQ) {
+                std::cout << "skipped: " << quantizeNode->getName() << std::endl;
+                continue;
+            }
+
             quantizeNode->appendPostOps(ops);
             continue;
         }

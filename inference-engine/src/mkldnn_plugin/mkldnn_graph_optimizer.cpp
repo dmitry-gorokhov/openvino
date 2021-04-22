@@ -59,12 +59,12 @@ void MKLDNNGraphOptimizer::ApplyCommonGraphOptimizations(MKLDNNGraph &graph) {
     graph.RemoveDroppedNodes();
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseClampAndQuantize");
-    FuseClampAndQuantize(graph);
-    graph.RemoveDroppedNodes();
+//    FuseClampAndQuantize(graph);
+//    graph.RemoveDroppedNodes();
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseScaleShiftAndQuantize");
-    FuseScaleShiftAndQuantize(graph);
-    graph.RemoveDroppedNodes();
+//    FuseScaleShiftAndQuantize(graph);
+//    graph.RemoveDroppedNodes();
 
     MergeGroupConvolution(graph);
     graph.RemoveDroppedNodes();
