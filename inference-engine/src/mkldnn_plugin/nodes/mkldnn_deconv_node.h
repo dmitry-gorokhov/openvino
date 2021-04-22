@@ -35,6 +35,8 @@ public:
     MKLDNNMemoryDesc getSrcMemDesc(mkldnn::primitive_desc_iterator &primitive_desc_it, size_t idx) override;
     MKLDNNMemoryDesc getDstMemDesc(mkldnn::primitive_desc_iterator &primitive_desc_it, size_t idx) override;
 
+    bool canBeExecutedInInt8();
+
     InferenceEngine::Precision getRuntimePrecision() const override;
 
     static bool isSupportedOperation(const std::shared_ptr<ngraph::Node>& op, std::string& errorMessage) noexcept;
@@ -42,10 +44,12 @@ public:
 private:
     bool withGroups = false;
     bool isDW = false;
+    bool isInt8 = false;
     size_t groupNum = 1;
     size_t outDepth;
     size_t IC;
     size_t OC;
+    std::vector<ptrdiff_t> kernel;
     std::vector<ptrdiff_t> stride;
     std::vector<ptrdiff_t> dilation;
     std::vector<ptrdiff_t> paddingL;
@@ -58,6 +62,7 @@ private:
     void setPostOps(mkldnn::primitive_attr &attr);
 
     std::string errorPrefix;
+    InferenceEngine::Blob::Ptr createWeiBlobAsIO(InferenceEngine::SizeVector dims);
 };
 
 }  // namespace MKLDNNPlugin
