@@ -60,9 +60,9 @@ void MKLDNNBroadcastNode::initSupportedPrimitiveDescriptors() {
 
     Precision prec = getOriginalInputPrecisionAtPort(BROADCAST_INPUT);
 
-    addSupportedPrimDesc({{TensorDescCreatorTypes::nspc, prec},
+    addSupportedPrimDesc({{TensorDescCreatorTypes::ncsp, prec},
                           {TensorDescCreatorTypes::ncsp, Precision::I32}},
-                         {{TensorDescCreatorTypes::nspc, prec}},
+                         {{TensorDescCreatorTypes::ncsp, prec}},
                          impl_desc_type::ref_any);
 }
 
