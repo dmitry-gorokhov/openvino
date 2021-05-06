@@ -1130,7 +1130,32 @@ MKLDNNFakeQuantizeNode::MKLDNNFakeQuantizeNode(const std::shared_ptr<ngraph::Nod
                     quantizationOnly = false;
             }
 
-            algorithm = quantizationOnly ? FQQuantization : FQCommon;
+            bool isFakeQuantization = true;
+            bool isFakeQuantizationWithScale = true;
+            for (int i = 0; i < std::max(inputLowAxisSize, std::max(outputLowAxisSize, std::max(inputHighAxisSize, outputHighAxisSize))); i++) {
+                float il = inputLowData[isInputLowBroadcasted ? 0 : i];
+                float ol = outputLowData[isOutputLowBroadcasted ? 0 : i];
+                float ih = inputHighData[isInputHighBroadcasted ? 0 : i];
+                float oh = outputHighData[isOutputHighBroadcasted ? 0 : i];
+
+                isFakeQuantization = isFakeQuantization && il == ol && ih == oh;
+                isFakeQuantizationWithScale = isFakeQuantizationWithScale && ol != 0 && oh != 0 && (il / ol - ih / oh < 0.1f);
+            }
+
+            if (isFakeQuantizationWithScale) {
+                for (int i = 0; i < std::max(inputLowAxisSize, std::max(outputLowAxisSize, std::max(inputHighAxisSize, outputHighAxisSize))); i++) {
+                    float il = inputLowData[isInputLowBroadcasted ? 0 : i];
+                    float ol = outputLowData[isOutputLowBroadcasted ? 0 : i];
+
+                    fqScales.push_back(1 / (il / ol));
+                }
+            }
+
+//            quantizeOpType = quantizationOnly ? QuantizeOpType::Quantization :
+//                             (isFakeQuantization || isFakeQuantizationWithScale) ? QuantizeOpType::FakeQuantization : QuantizeOpType::Requantization;
+
+            algorithm = quantizationOnly ? FQQuantization :
+                        (isFakeQuantization || isFakeQuantizationWithScale) ? FQCommon : FQRequantization;
         }
     } else {
         IE_THROW(NotImplemented) << errorMessage;
@@ -1715,8 +1740,8 @@ void MKLDNNFakeQuantizeNode::appendPostOps(mkldnn::post_ops& ops, const VectorDi
     if (getAlgorithm() == FQBinarization) {
         ops.append_binarization(mkldnn::algorithm::binarization_depthwise, (const float*)&binarizationThresholds[0], (const float*)&binarizationOutputMask[0]);
     } else {
-        mkldnn::algorithm alg = getAlgorithm() == FQCommon ? mkldnn::algorithm::quantization_quantize_dequantize :
-                                                             mkldnn::algorithm::quantization_quantize;
+        mkldnn::algorithm alg = getAlgorithm() == FQQuantization ? mkldnn::algorithm::quantization_quantize :
+                                                                   mkldnn::algorithm::quantization_quantize_dequantize;
         ops.append_quantization(alg, &cropLowData, &cropHighData, &inputScaleData, &inputShiftData, &outputScaleData, &outputShiftData);
     }
 }

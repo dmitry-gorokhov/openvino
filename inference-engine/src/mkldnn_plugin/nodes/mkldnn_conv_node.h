@@ -119,6 +119,9 @@ private:
     bool isWino = false;
     AttrPtr pAttr;
     bool autoPadding = false;
+
+    mkldnn::memory::data_type outputDataType;
+    InferenceEngine::Precision sumPrc = InferenceEngine::Precision::UNSPECIFIED;
 };
 
 }  // namespace MKLDNNPlugin
