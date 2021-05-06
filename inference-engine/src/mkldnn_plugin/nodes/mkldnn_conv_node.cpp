@@ -90,6 +90,9 @@ bool MKLDNNConvolutionNode::canBeExecutedInInt8() {
 }
 
 InferenceEngine::Precision MKLDNNConvolutionNode::fusedEltwisePrecision(MKLDNNEltwiseNode *eltwiseNode, int findex) {
+    if (sumPrc != Precision::UNSPECIFIED)
+        return sumPrc;
+
     InferenceEngine::Precision eltwisePrecision;
     auto parent0 = getCreatorLayer(eltwiseNode->getCnnLayer()->insData[0].lock()).lock();
     auto parent1 = getCreatorLayer(eltwiseNode->getCnnLayer()->insData[1].lock()).lock();
@@ -127,7 +130,7 @@ void MKLDNNConvolutionNode::getSupportedDescriptors() {
     if (!inputZeroPoints.empty())
         inputDataType = memory::data_type::u8;
 
-    auto outputDataType = precisionToDataType(getCnnLayer()->outData[0]->getPrecision());
+    outputDataType = precisionToDataType(getCnnLayer()->outData[0]->getPrecision());
     eltwisePrecision = MKLDNNExtensionUtils::DataTypeToIEPrecision(outputDataType);
     if (baseInputsNumber > 1) {
         if (!fusedWith.empty()) {
@@ -385,7 +388,7 @@ void MKLDNNConvolutionNode::setPostOps(mkldnn::primitive_attr &attr, bool initWe
 
         auto* eltwiseNode = dynamic_cast<MKLDNNEltwiseNode *>(node.get());
         if (eltwiseNode && eltwiseNode->isSum()) {
-                ops.append_sum(1.0, precisionToDataType(eltwisePrecision));
+                ops.append_sum(sumScale, precisionToDataType(eltwisePrecision));
             continue;
         }
 
@@ -396,27 +399,71 @@ void MKLDNNConvolutionNode::setPostOps(mkldnn::primitive_attr &attr, bool initWe
 
         auto* quantizeNode = dynamic_cast<MKLDNNQuantizeNode *>(node.get());
         if (quantizeNode) {
-            bool hasSubsequentSum = false;
-            bool hasSubsequentFQ = false;
-            for (int j = i + 1; j < fusedWith.size(); j++) {
-                auto& nextNode = fusedWith[j];
+            if (i == 0) {
+                bool hasSubsequentSum = false;
+                bool hasSubsequentFQ = false;
+                for (int j = i + 1; j < fusedWith.size(); j++) {
+                    auto &nextNode = fusedWith[j];
 
-                auto* nextEltwiseNode = dynamic_cast<MKLDNNEltwiseNode *>(nextNode.get());
-                if (nextEltwiseNode && nextEltwiseNode->isSum()) {
-                    hasSubsequentSum = true;
+                    auto *nextEltwiseNode = dynamic_cast<MKLDNNEltwiseNode *>(nextNode.get());
+                    if (nextEltwiseNode && nextEltwiseNode->isSum()) {
+                        hasSubsequentSum = true;
+                    }
+
+                    auto *nextQuantizeNode = dynamic_cast<MKLDNNQuantizeNode *>(nextNode.get());
+                    if (nextQuantizeNode) {
+                        hasSubsequentFQ = true;
+                    }
                 }
 
-                auto* nextQuantizeNode = dynamic_cast<MKLDNNQuantizeNode *>(nextNode.get());
-                if (nextQuantizeNode) {
-                    hasSubsequentFQ = true;
+                if (quantizeNode->getOpType() == QuantizeOpType::FakeQuantization &&
+                    hasSubsequentSum &&
+                    hasSubsequentFQ) {
+                    std::vector<float> fqScale = quantizeNode->getFQScales();
+                    if (!fqScale.empty()) {
+                        size_t size = fqScale.size();
+                        size_t OC = getChildEdgeAt(0)->getDims()[1];
+                        if (size == 1) {
+                            fqScale.resize(OC);
+                            for (size_t k = 0; k < OC; k++)
+                                fqScale[k] = fqScale[0];
+                        }
+
+                        attr.set_output_scales(1 << 1, fqScale);
+
+                        continue;
+                    }
                 }
             }
 
-            if (quantizeNode->getOpType() == QuantizeOpType::FakeQuantization &&
-                hasSubsequentSum &&
-                hasSubsequentFQ) {
-                std::cout << "skipped: " << quantizeNode->getName() << std::endl;
-                continue;
+            if (node == fusedWith[fusedWith.size() - 1] &&
+                outputDataType == memory::data_type::u8 &&
+                quantizeNode->getOpType() == QuantizeOpType::Quantization
+                /*levels == 256*/) {
+                auto& cl = quantizeNode->getCropLow();
+                auto& isc = quantizeNode->getInputScale();
+                auto& ish = quantizeNode->getInputShift();
+
+                if (std::all_of(cl.cbegin(), cl.cend(), [](float val){ return val == 0.0f; }) &&
+                    std::all_of(isc.cbegin(), isc.cend(), [&](float val){ return val == isc[0]; }) &&
+                    std::all_of(ish.cbegin(), ish.cend(), [&](float val){ return val == ish[0]; })) {
+                    ops.append_eltwise(1.0f, algorithm::eltwise_linear, isc[0], ish[0]);
+
+                    continue;
+                } else if (std::all_of(cl.cbegin(), cl.cend(), [](float val){ return val == 0.0f; })) {
+                    std::vector<float> new_isc = isc;
+                    new_isc.resize(rnd_up(isc.size(), 16), 0);
+
+                    std::vector<float> new_ish = ish;
+                    new_ish.resize(rnd_up(ish.size(), 16), 0);
+
+                    quantizeNode->setInputScale(new_isc);
+                    quantizeNode->setInputShift(new_ish);
+
+                    ops.append_depthwise(algorithm::depthwise_scale_shift, &quantizeNode->getInputScale()[0], &quantizeNode->getInputShift()[0]);
+
+                    continue;
+                }
             }
 
             quantizeNode->appendPostOps(ops);

@@ -323,11 +323,11 @@ static void Transformation(CNNNetwork& clonedNetwork, const Config& conf) {
             .add<ConvolutionTransformation, ngraph::opset1::Convolution>(
                 LayerTransformation::Params(params).setPrecisionsOnActivations({ngraph::element::u8}).setSupportAsymmetricQuantization(true))
             .add<GroupConvolutionTransformation, ngraph::opset1::GroupConvolution>(
-                LayerTransformation::Params(params).setPrecisionsOnActivations({ ngraph::element::u8 }).setSupportAsymmetricQuantization(true))
+                LayerTransformation::Params(params).setPrecisionsOnActivations({ ngraph::element::u8 }).setSupportAsymmetricQuantization(true)));
 //            .addStandaloneCleanup<MultiplyToGroupConvolutionTransformation, ngraph::opset1::Multiply>(
 //                LayerTransformation::Params(params).setPrecisionsOnActivations({ ngraph::element::u8 }))
-            .remove<AddTransformation, ngraph::opset1::Add>()
-            .remove<FakeQuantizeTransformation, ngraph::opset1::FakeQuantize>());
+//            .remove<AddTransformation, ngraph::opset1::Add>()
+//            .remove<FakeQuantizeTransformation, ngraph::opset1::FakeQuantize>());
 //            .remove<ConvolutionTransformation, ngraph::opset1::Convolution>()
 //            .removeCleanup<FuseSubtractToFakeQuantizeTransformation, ngraph::opset1::Subtract>()
 //            .removeCleanup<FuseMultiplyToFakeQuantizeTransformation, ngraph::opset1::Multiply>());

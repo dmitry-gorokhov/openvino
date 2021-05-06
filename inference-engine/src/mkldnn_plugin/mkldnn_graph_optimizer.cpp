@@ -149,6 +149,9 @@ void MKLDNNGraphOptimizer::ApplyCommonGraphOptimizations(MKLDNNGraph &graph) {
     FuseEltwiseAndSimple(graph);
     graph.RemoveDroppedNodes();
 
+//    FuseSumScaleAndConvolution(graph);
+//    graph.RemoveDroppedNodes();
+
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "RemoveDroppedEdges");
     graph.RemoveDroppedEdges();
 }
@@ -2182,6 +2185,103 @@ void MKLDNNGraphOptimizer::FuseScaleShiftAndQuantize(MKLDNNGraph &graph) {
         if (!isSutableQuantizeNode(child)) continue;
 
         if (fuseScaleShiftAndQuantizeNodes(parent, child)) {
+            auto parentEdges = parent->parentEdges;
+            for (auto &parentEdge : parentEdges) {
+                auto p_edge = parentEdge.lock();
+                if (p_edge->getParent()->getCnnLayer()->type != "Const")
+                    continue;
+
+                removeEdge(graph, p_edge);
+            }
+
+            graph.DropNode(parent);
+        }
+    }
+}
+
+void MKLDNNGraphOptimizer::FuseSumScaleAndConvolution(MKLDNNGraph &graph) {
+    auto& graphNodes = graph.GetNodes();
+
+    auto isSutableScaleShiftNode = [](MKLDNNNodePtr node) {
+        if (node->getType() != Eltwise)
+            return false;
+
+        auto* eltwiseNode = dynamic_cast<MKLDNNEltwiseNode *>(node.get());
+        if (eltwiseNode == nullptr)
+            IE_THROW() << "Cannot cast " << node->getName() << " to eltwise node";
+
+        if (eltwiseNode->getChildEdges().size() != 1)
+            return false;
+
+        if (eltwiseNode->getOpType() != MulAdd)
+            return false;
+
+        return true;
+    };
+
+    auto isSutableConvolutionNode = [](MKLDNNNodePtr parent, MKLDNNNodePtr child) {
+        if (child->getType() != Convolution)
+            return false;
+
+        auto* convolutionNode = dynamic_cast<MKLDNNConvolutionNode*>(child.get());
+        if (convolutionNode == nullptr)
+            IE_THROW() << "Cannot cast " << child->getName() << " to Convolution node";
+
+        bool withSum = false;
+        for (int i = 0; i < convolutionNode->getFusedWith().size(); i++) {
+            auto *eltwiseNode = dynamic_cast<MKLDNNEltwiseNode *>(convolutionNode->getFusedWith()[i].get());
+            if (eltwiseNode && eltwiseNode->isSum()) {
+                withSum = true;
+            }
+        }
+
+        auto childParentsNum = child->getParentEdges().size();
+        if (child->getParentEdgesAtPort(childParentsNum - 1)[0]->getParent() != parent)
+            return false;
+
+        return convolutionNode->canBeExecutedInInt8() && withSum;
+    };
+
+    auto fuseSumScale = [](MKLDNNNodePtr parent, MKLDNNNodePtr child) {
+        auto* convolutionNode = dynamic_cast<MKLDNNConvolutionNode*>(child.get());
+        if (convolutionNode == nullptr)
+            IE_THROW() << "Cannot cast " << child->getName() << " to Convolution node";
+
+        auto eltwiseLayer = parent->getCnnLayer();
+        if (eltwiseLayer == nullptr)
+            IE_THROW() << "Cannot get scale shift layer " << parent->getName();
+
+        Blob::Ptr scalesBlob = eltwiseLayer->blobs["weights"];
+        if (scalesBlob == nullptr)
+            return false;
+
+        Blob::Ptr shiftsBlob = eltwiseLayer->blobs["biases"];
+        if (shiftsBlob == nullptr)
+            return false;
+
+        const float* scalesBufferPtr = scalesBlob->buffer().as<float*>();
+        const float* shiftsBufferPtr = shiftsBlob->buffer().as<float*>();
+
+        if (std::any_of(scalesBufferPtr, scalesBufferPtr + scalesBlob->size(), [&](float val){ return val != scalesBufferPtr[0]; })) {
+            return false;
+        }
+        if (std::any_of(shiftsBufferPtr, shiftsBufferPtr + shiftsBlob->size(), [&](float val){ return val != 0; })) {
+            return false;
+        }
+
+        convolutionNode->setSumScale(scalesBufferPtr[0], eltwiseLayer->insData[0].lock()->getPrecision());
+
+        return true;
+    };
+
+    for (int i = 0; i < graphNodes.size(); i++) {
+        auto parent = graphNodes[i];
+        if (!isSutableScaleShiftNode(parent)) continue;
+
+        auto child = parent->getChildEdgeAt(0)->getChild();
+        if (!isSutableConvolutionNode(parent, child)) continue;
+
+        if (fuseSumScale(parent, child)) {
             auto parentEdges = parent->parentEdges;
             for (auto &parentEdge : parentEdges) {
                 auto p_edge = parentEdge.lock();

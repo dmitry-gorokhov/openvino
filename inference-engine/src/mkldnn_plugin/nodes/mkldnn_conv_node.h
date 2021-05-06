@@ -56,6 +56,11 @@ public:
     std::vector<float> weightsZeroPoints;
     std::vector<int32_t> outputCompensation;
 
+    void setSumScale(float sumScale, InferenceEngine::Precision sumPrc) {
+        this->sumScale = sumScale;
+        this->sumPrc = sumPrc;
+    }
+
 protected:
     void addScaleToPrimitiveAttr(mkldnn::primitive_attr attr) const;
     InferenceEngine::Precision fusedEltwisePrecision(MKLDNNEltwiseNode *eltwiseNode, int findex);
@@ -91,6 +96,11 @@ private:
     int baseInputsNumber;
 
     InferenceEngine::Precision eltwisePrecision;
+
+    mkldnn::memory::data_type outputDataType;
+
+    float sumScale = 1.0f;
+    InferenceEngine::Precision sumPrc = InferenceEngine::Precision::UNSPECIFIED;
 };
 
 }  // namespace MKLDNNPlugin

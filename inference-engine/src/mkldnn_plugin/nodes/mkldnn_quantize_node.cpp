@@ -1082,7 +1082,29 @@ void MKLDNNQuantizeNode::init() {
                 quantizationOnly = false;
         }
 
-        quantizeOpType = quantizationOnly ? QuantizeOpType::Quantization : QuantizeOpType::FakeQuantization;
+        bool isFakeQuantization = true;
+        bool isFakeQuantizationWithScale = true;
+        for (int i = 0; i < std::max(inputLowAxisSize, std::max(outputLowAxisSize, std::max(inputHighAxisSize, outputHighAxisSize))); i++) {
+            float il = inputLowData[isInputLowBroadcasted ? 0 : i];
+            float ol = outputLowData[isOutputLowBroadcasted ? 0 : i];
+            float ih = inputHighData[isInputHighBroadcasted ? 0 : i];
+            float oh = outputHighData[isOutputHighBroadcasted ? 0 : i];
+
+            isFakeQuantization = isFakeQuantization && il == ol && ih == oh;
+            isFakeQuantizationWithScale = isFakeQuantizationWithScale && ol != 0 && oh != 0 && (il / ol - ih / oh < 0.1f);
+        }
+
+        if (isFakeQuantizationWithScale) {
+            for (int i = 0; i < std::max(inputLowAxisSize, std::max(outputLowAxisSize, std::max(inputHighAxisSize, outputHighAxisSize))); i++) {
+                float il = inputLowData[isInputLowBroadcasted ? 0 : i];
+                float ol = outputLowData[isOutputLowBroadcasted ? 0 : i];
+
+                fqScales.push_back(1 / (il / ol));
+            }
+        }
+
+        quantizeOpType = quantizationOnly ? QuantizeOpType::Quantization :
+                         (isFakeQuantization || isFakeQuantizationWithScale) ? QuantizeOpType::FakeQuantization : QuantizeOpType::Requantization;
     }
 
     if (binarization) {
@@ -1593,8 +1615,8 @@ void MKLDNNQuantizeNode::appendPostOps(mkldnn::post_ops& ops) {
             outputShiftData.set(outputShift.size(), 1 << 1, &outputShift[0]);
         }
 
-        mkldnn::algorithm alg = quantizeOpType == QuantizeOpType::FakeQuantization ? mkldnn::algorithm::quantization_quantize_dequantize :
-                                                                                     mkldnn::algorithm::quantization_quantize;
+        mkldnn::algorithm alg = quantizeOpType == QuantizeOpType::Quantization ? mkldnn::algorithm::quantization_quantize
+                                                                               : mkldnn::algorithm::quantization_quantize_dequantize;
 
         ops.append_quantization(alg, &cropLowData, &cropHighData, &inputScaleData, &inputShiftData, &outputScaleData, &outputShiftData);
     }
