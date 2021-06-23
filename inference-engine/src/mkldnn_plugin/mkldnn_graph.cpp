@@ -664,7 +664,7 @@ void MKLDNNGraph::AllocateWithReuse() {
                 int64_t offset = memSolver.getOffset(i);
                 // !! Fallback to individual memory allocation !!
                 // if you like to check infer without reuse just call this function without arguments.
-                edge->allocate(workspace_ptr + offset * alignment);  // alignment in byte
+                edge->allocate();  // alignment in byte
 
                 // TODO: WA for some test (like strided_slice_test) which use tensors with
                 //       shapes {0}. And it is implisitly converted into {1} tensor.
