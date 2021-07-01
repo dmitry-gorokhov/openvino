@@ -23,6 +23,9 @@ ngraph::pass::ConvertPadToLegacyMatcher::ConvertPadToLegacyMatcher() {
         }
 
         auto pad_ie = std::make_shared<ngraph::op::PadIE>(pad);
+        if (!pad_ie) {
+            return false;
+        }
         pad_ie->set_friendly_name(pad->get_friendly_name());
         ngraph::copy_runtime_info(pad, pad_ie);
         ngraph::replace_node(pad, pad_ie);

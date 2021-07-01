@@ -255,6 +255,9 @@ std::shared_ptr<Node> make_op_label() {
 template <typename T, typename... Args>
 std::shared_ptr<Node> fold(Args&&... args) {
     auto node = std::make_shared<T>(std::forward<Args>(args)...);
+    if (!node) {
+        throw std::runtime_error("Can't create node");
+    }
     if (node->get_output_size() == 1) {
         OutputVector folded(node->get_output_size());
         if (node->constant_fold(folded, node->input_values())) {

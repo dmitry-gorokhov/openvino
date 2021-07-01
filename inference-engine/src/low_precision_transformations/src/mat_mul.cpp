@@ -60,6 +60,9 @@ bool MatMulTransformation::transform(TransformationContext &context, ngraph::pat
         ngraph::op::TemporaryReplaceOutputType(dequantization2.data, deqPrecision).get(),
         matMul->get_transpose_a(),
         matMul->get_transpose_b());
+    if (!newMatMul) {
+        return false;
+    }
     NetworkHelper::copyInfo(matMul, newMatMul);
 
     std::shared_ptr<Node> parent = newMatMul;

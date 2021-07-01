@@ -200,7 +200,7 @@ private:
     Xbyak::Opmask mask_post_op_reserved = Xbyak::Opmask(1);
     Xbyak::Reg64 eltwise_reserved = rax;
 
-    size_t vlen = cpu_isa_traits<isa>::vlen;
+    const size_t vlen = cpu_isa_traits<isa>::vlen;
 
     Xbyak::Label l_table;
 
@@ -896,6 +896,9 @@ MKLDNNBinaryConvolutionNode::MKLDNNBinaryConvolutionNode(const std::shared_ptr<n
     if (isSupportedOperation(op, errorMessage)) {
         errorPrefix = "BinaryConvolution node with name '" + getName() + "' ";
         const auto binConv = std::dynamic_pointer_cast<const ngraph::opset1::BinaryConvolution>(op);
+        if (!binConv) {
+            IE_THROW() << errorPrefix << ". Cannot cast BinaryConvolution";
+        }
 
         pad_value = binConv->get_pad_value();
         for (int i = 0; i < binConv->get_strides().size(); i++) {

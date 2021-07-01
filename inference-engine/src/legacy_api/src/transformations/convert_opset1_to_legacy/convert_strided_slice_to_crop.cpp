@@ -211,6 +211,9 @@ ngraph::pass::ConvertStridedSliceToCropMatcher::ConvertStridedSliceToCropMatcher
 
         // Crop
         std::shared_ptr<ngraph::Node> data_node = std::make_shared<ngraph::op::CropIE> (data_output, axes, dim, offset);
+        if (!data_node) {
+            return false;
+        }
         data_node->set_friendly_name(slice->get_friendly_name());
         new_ops.push_back(data_node);
 
