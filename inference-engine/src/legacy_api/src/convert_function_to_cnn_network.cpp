@@ -244,9 +244,6 @@ CNNLayer::Ptr createSubGraphLayer(const std::shared_ptr<ngraph::Node>& layer) {
     LayerParams params = {layer->get_friendly_name(), "TensorIterator",
                           details::convertPrecision(layer->get_output_element_type(0))};
     auto res = std::make_shared<InferenceEngine::TensorIterator>(params);
-    if (res == nullptr) {
-        IE_THROW() << "Can't create TensorIterator";
-    }
     res->body = body;
 
     // Port map: outputs
@@ -728,9 +725,6 @@ InferenceEngine::details::CNNLayerCreator::CNNLayerCreator(const std::shared_ptr
         LayerParams attrs = {node->get_friendly_name(), "DetectionOutput",
                             details::convertPrecision(node->get_output_element_type(0))};
         auto res = std::make_shared<InferenceEngine::CNNLayer>(attrs);
-        if (res == nullptr) {
-            IE_THROW() << "Node '" << node->get_name() << "': Can't create CNNLayer";
-        }
         res->params = params;
 
         if (res->params["code_type"] == "caffe.priorboxparameter.center_size") {
@@ -838,9 +832,6 @@ InferenceEngine::details::CNNLayerCreator::CNNLayerCreator(const std::shared_ptr
             details::convertPrecision(node->get_output_element_type(0))};
 
         auto res = std::make_shared<CNNLayer>(attrs);
-        if (res == nullptr) {
-            IE_THROW() << "Node '" << node->get_name() << "': Can't create CNNLayer";
-        }
         res->params = params;
         res->params["clip"] = res->getBoolStrParamAsIntStr("clip");
         res->params["flip"] = res->getBoolStrParamAsIntStr("flip");
@@ -883,9 +874,6 @@ InferenceEngine::details::CNNLayerCreator::CNNLayerCreator(const std::shared_ptr
         LayerParams attrs = {node->get_friendly_name(), "PriorBoxClustered",
             details::convertPrecision(node->get_output_element_type(0))};
         auto res = std::make_shared<CNNLayer>(attrs);
-        if (res == nullptr) {
-            IE_THROW() << "Node '" << node->get_name() << "': Can't create CNNLayer";
-        }
         res->params = params;
         res->params["clip"] =
             res->getBoolStrParamAsIntStr("clip");
@@ -904,9 +892,6 @@ InferenceEngine::details::CNNLayerCreator::CNNLayerCreator(const std::shared_ptr
         LayerParams attrs = {node->get_friendly_name(), "Proposal",
             details::convertPrecision(node->get_output_element_type(0))};
         auto res = std::make_shared<CNNLayer>(attrs);
-        if (res == nullptr) {
-            IE_THROW() << "Node '" << node->get_name() << "': Can't create CNNLayer";
-        }
         res->params = params;
         res->params["clip_before_nms"] =
             res->getBoolStrParamAsIntStr("clip_before_nms");
@@ -1167,9 +1152,6 @@ InferenceEngine::details::CNNLayerCreator::CNNLayerCreator(const std::shared_ptr
         LayerParams attrs = {node->get_friendly_name(), "GRUSequence",
                              details::convertPrecision(node->get_output_element_type(0))};
         auto res = std::make_shared<RNNSequenceLayer>(attrs);
-        if (res == nullptr) {
-            IE_THROW() << "Node '" << node->get_name() << "': Can't create CNNLayer";
-        }
         res->params = params;
         res->axis = std::stoi(res->params["axis"]);
         if (res->params["direction"] == "reverse")
@@ -1198,9 +1180,6 @@ InferenceEngine::details::CNNLayerCreator::CNNLayerCreator(const std::shared_ptr
         LayerParams attrs = {node->get_friendly_name(), "RNNSequence",
                              details::convertPrecision(node->get_output_element_type(0))};
         auto res = std::make_shared<RNNSequenceLayer>(attrs);
-        if (res == nullptr) {
-            IE_THROW() << "Node '" << node->get_name() << "': Can't create CNNLayer";
-        }
         res->params = params;
 
         res->cellType = RNNSequenceLayer::CellType::RNN;
@@ -1226,9 +1205,6 @@ InferenceEngine::details::CNNLayerCreator::CNNLayerCreator(const std::shared_ptr
         LayerParams attrs = {node->get_friendly_name(), "LSTMSequence",
                              details::convertPrecision(node->get_output_element_type(0))};
         auto res = std::make_shared<RNNSequenceLayer>(attrs);
-        if (res == nullptr) {
-            IE_THROW() << "Node '" << node->get_name() << "': Can't create CNNLayer";
-        }
         res->params = params;
 
         res->cellType = RNNSequenceLayer::CellType::LSTM;
@@ -1273,9 +1249,6 @@ InferenceEngine::details::CNNLayerCreator::CNNLayerCreator(const std::shared_ptr
         if (reduce_node == nullptr)
             IE_THROW() << "Node '" << node->get_name() << "' is not an instance of ArithmeticReductionKeepDims.";
         auto res = std::make_shared<InferenceEngine::ReduceLayer>(attrs);
-        if (res == nullptr) {
-            IE_THROW() << "Node '" << node->get_name() << "': Can't create CNNLayer";
-        }
         res->params = params;
         res->params["keep_dims"] = reduce_node->get_keep_dims() ? "True" : "False";
         return res;
@@ -1375,9 +1348,6 @@ InferenceEngine::details::CNNLayerCreator::CNNLayerCreator(const std::shared_ptr
         LayerParams attrs = {node->get_friendly_name(), "MVN",
                             details::convertPrecision(node->get_output_element_type(0))};
         auto res = std::make_shared<InferenceEngine::MVNLayer>(attrs);
-        if (res == nullptr) {
-            IE_THROW() << "Node '" << node->get_name() << "': Can't create CNNLayer";
-        }
 
         res->params["normalize_variance"] = params.at("normalize_variance");
         res->params["normalize_variance"] = res->getBoolStrParamAsIntStr("normalize_variance");
@@ -1395,9 +1365,6 @@ InferenceEngine::details::CNNLayerCreator::CNNLayerCreator(const std::shared_ptr
         LayerParams attrs = {node->get_friendly_name(), "Normalize",
                              details::convertPrecision(node->get_output_element_type(0))};
         auto res = std::make_shared<InferenceEngine::NormLayer>(attrs);
-        if (res == nullptr) {
-            IE_THROW() << "Node '" << node->get_name() << "': Can't create CNNLayer";
-        }
 
         res->params = params;
         res->params["channel_shared"] = res->getBoolStrParamAsIntStr("channel_shared");
@@ -1624,9 +1591,6 @@ InferenceEngine::details::CNNLayerCreator::CNNLayerCreator(const std::shared_ptr
                                                 const std::map<std::string, std::string>& params) -> CNNLayerPtr {
         LayerParams attrs = {node->get_friendly_name(), "CTCGreedyDecoder", details::convertPrecision(node->get_output_element_type(0))};
         auto res = std::make_shared<InferenceEngine::CNNLayer>(attrs);
-        if (res == nullptr) {
-            IE_THROW() << "Node '" << node->get_name() << "': Can't create CNNLayer";
-        }
         res->params = params;
         res->params["ctc_merge_repeated"] = res->getBoolStrParamAsIntStr("ctc_merge_repeated");
         return res;
@@ -1658,9 +1622,6 @@ InferenceEngine::details::CNNLayerCreator::CNNLayerCreator(const std::shared_ptr
                                           const std::map<std::string, std::string>& params) -> CNNLayerPtr {
         LayerParams attrs = {node->get_friendly_name(), "RegionYolo", details::convertPrecision(node->get_output_element_type(0))};
         auto res = std::make_shared<InferenceEngine::CNNLayer>(attrs);
-        if (res == nullptr) {
-            IE_THROW() << "Node '" << node->get_name() << "': Can't create CNNLayer";
-        }
         res->params = params;
         res->params["do_softmax"] = res->getBoolStrParamAsIntStr("do_softmax");
         return res;
@@ -1753,9 +1714,6 @@ InferenceEngine::details::CNNLayerCreator::CNNLayerCreator(const std::shared_ptr
                                           const std::map<std::string, std::string>& params) -> CNNLayerPtr {
         LayerParams attrs = {node->get_friendly_name(), "Resample", details::convertPrecision(node->get_output_element_type(0))};
         auto res = std::make_shared<InferenceEngine::CNNLayer>(attrs);
-        if (res == nullptr) {
-            IE_THROW() << "Node '" << node->get_name() << "': Can't create CNNLayer";
-        }
         res->params = params;
 
         res->params["antialias"] = res->getBoolStrParamAsIntStr("antialias");
