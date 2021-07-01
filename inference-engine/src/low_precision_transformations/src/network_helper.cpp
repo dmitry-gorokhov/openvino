@@ -122,7 +122,7 @@ std::shared_ptr<opset1::Constant> NetworkHelper::foldDequantizationConstant(
 
         const auto result = as_type_ptr<opset1::Constant>(outputs[outIdx].get_node_shared_ptr());
         if (result == nullptr) {
-            throw std::runtime_error("result of constant folding is not constant");
+            THROW_TRANSFORMATION_EXCEPTION << "result of constant folding is not constant";
         }
 
         return result;
@@ -407,7 +407,7 @@ std::shared_ptr<ngraph::opset1::Multiply> NetworkHelper::optimizeMultipliesAfter
             }
 
             auto targetInputs = constant1->output(0).get_target_inputs();
-            if (targetInputs.begin() == targetInputs.end()) {
+            if (targetInputs.empty()) {
                 THROW_IE_LPT_EXCEPTION(*multiply) << "targetInputs is empty";
             }
             auto newInput = multiply->input_value(1 - targetInputs.begin()->get_index());

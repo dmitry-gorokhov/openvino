@@ -49,9 +49,6 @@ MKLDNNCumSumNode::MKLDNNCumSumNode(const std::shared_ptr<ngraph::Node>& op, cons
     numOfDims = dataShape.size();
 
     const auto cumsum = std::dynamic_pointer_cast<const ngraph::opset3::CumSum>(op);
-    if (!cumsum) {
-        IE_THROW() << errorPrefix << ". Cannot cast CumSum";
-    }
     exclusive = cumsum->is_exclusive();
     reverse = cumsum->is_reverse();
 

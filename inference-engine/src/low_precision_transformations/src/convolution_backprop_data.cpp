@@ -184,7 +184,7 @@ bool ConvolutionBackpropDataTransformation::transform(TransformationContext &con
         }
     }
     auto targetInputs = convolutionBackpropData->output(0).get_target_inputs();
-    if (targetInputs.begin() == targetInputs.end()) {
+    if (targetInputs.empty()) {
         return false;
     }
     std::shared_ptr<ngraph::opset1::Multiply> finalDequantization = NetworkHelper::optimizeMultipliesAfter(

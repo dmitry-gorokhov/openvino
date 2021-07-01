@@ -896,9 +896,6 @@ MKLDNNBinaryConvolutionNode::MKLDNNBinaryConvolutionNode(const std::shared_ptr<n
     if (isSupportedOperation(op, errorMessage)) {
         errorPrefix = "BinaryConvolution node with name '" + getName() + "' ";
         const auto binConv = std::dynamic_pointer_cast<const ngraph::opset1::BinaryConvolution>(op);
-        if (!binConv) {
-            IE_THROW() << errorPrefix << ". Cannot cast BinaryConvolution";
-        }
 
         pad_value = binConv->get_pad_value();
         for (int i = 0; i < binConv->get_strides().size(); i++) {
