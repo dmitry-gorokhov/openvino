@@ -796,6 +796,8 @@ InferenceEngine::Precision MKLDNNConvolutionNode::getRuntimePrecision() const {
 }
 
 bool MKLDNNConvolutionNode::isNspcAvailable() const {
+    return false;
+
     using impl::cpu::x64::mayiuse;
 
     // do not use in non-quantized networks until it is enforced externally
