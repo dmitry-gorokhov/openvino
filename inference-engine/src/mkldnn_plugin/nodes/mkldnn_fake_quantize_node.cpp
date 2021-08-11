@@ -202,7 +202,7 @@ private:
     Xbyak::Opmask k_mask1 = Xbyak::Opmask(2);
 };
 
-template <cpu_isa_t isa>
+template <cpu_isa_t isa, typename Vmm>
 struct jit_uni_quantization_kernel : public jit_uni_quantize_kernel, public jit_generator {
     DECLARE_CPU_JIT_AUX_FUNCTIONS(jit_uni_quantization_kernel)
 
@@ -229,9 +229,6 @@ struct jit_uni_quantization_kernel : public jit_uni_quantize_kernel, public jit_
     }
 
 private:
-    using Vmm = typename conditional3<isa == cpu::x64::sse41, Xbyak::Xmm, isa == cpu::x64::avx2,
-            Xbyak::Ymm, Xbyak::Zmm>::type;
-
     inline Vmm vmm_val(int idx) { return Vmm(idx + 0); }
     inline Vmm vmm_crop_low(int idx) { return Vmm(idx + 2); }
     inline Vmm vmm_crop_high(int idx) { return Vmm(idx + 4); }
@@ -300,7 +297,7 @@ private:
         if (isa == cpu::x64::avx512_common)
             uni_vpxor(vmm_zero, vmm_zero, vmm_zero);
 
-        int simd_w = isa == cpu::x64::avx512_common ? 16 : 8;
+        int simd_w = 8;
         int tail_simd_w = 4;
         int repeats = isa == cpu::x64::sse41 ? 2 : 1;
 
@@ -417,7 +414,7 @@ private:
         if (isa == cpu::x64::avx512_common)
             uni_vpxor(vmm_zero, vmm_zero, vmm_zero);
 
-        int simd_w = isa == cpu::x64::avx512_common ? 16 : 8;
+        int simd_w = 8;
         int tail8_simd_w = 8;
         int tail4_simd_w = 4;
         int repeats = isa == cpu::x64::sse41 ? 2 : 1;
@@ -1101,14 +1098,14 @@ std::vector<mkldnn::memory::format_tag> MKLDNNFakeQuantizeNode::getDataFormats()
             switch (getParentEdgesAtPort(0)[0]->getDims().ndims()) {
                 case 4:
                     if (getAxis() == 1) {
-                        auto blkFormat = mayiuse(cpu::x64::avx512_common) ? memory::format_tag::nChw16c : memory::format_tag::nChw8c;
+                        auto blkFormat = memory::format_tag::nChw8c;
                         return {blkFormat, memory::format_tag::nhwc, memory::format_tag::nchw};
                     } else {
                         return {memory::format_tag::nchw};
                     }
                 case 5:
                     if (getAxis() == 1) {
-                        auto blkFormat = mayiuse(cpu::x64::avx512_common) ? memory::format_tag::nCdhw16c : memory::format_tag::nCdhw8c;
+                        auto blkFormat = memory::format_tag::nCdhw8c;
                         return {blkFormat, memory::format_tag::ndhwc, memory::format_tag::ncdhw};
                     } else {
                         return {memory::format_tag::ncdhw};
@@ -1242,17 +1239,17 @@ void MKLDNNFakeQuantizeNode::createPrimitive() {
             if (isBinarization())
                 quantize_kernel.reset(new jit_uni_binarization_kernel<cpu::x64::avx512_common>(jqp));
             else
-                quantize_kernel.reset(new jit_uni_quantization_kernel<cpu::x64::avx512_common>(jqp));
+                quantize_kernel.reset(new jit_uni_quantization_kernel<cpu::x64::avx512_common, Ymm>(jqp));
         } else if (mayiuse(cpu::x64::avx2)) {
             if (isBinarization())
                 quantize_kernel.reset(new jit_uni_binarization_kernel<cpu::x64::avx2>(jqp));
             else
-                quantize_kernel.reset(new jit_uni_quantization_kernel<cpu::x64::avx2>(jqp));
+                quantize_kernel.reset(new jit_uni_quantization_kernel<cpu::x64::avx2, Ymm>(jqp));
         } else if (mayiuse(cpu::x64::sse41)) {
             if (isBinarization())
                 quantize_kernel.reset(new jit_uni_binarization_kernel<cpu::x64::sse41>(jqp));
             else
-                quantize_kernel.reset(new jit_uni_quantization_kernel<cpu::x64::sse41>(jqp));
+                quantize_kernel.reset(new jit_uni_quantization_kernel<cpu::x64::sse41, Xmm>(jqp));
         }
     }
     if (quantize_kernel)
@@ -1469,7 +1466,7 @@ void MKLDNNFakeQuantizeNode::executeQuantization() {
     bool is_blk_format = jqp.src_layout != Layout::NHWC && jqp.src_layout != Layout::NDHWC;
     int blk_size = (jqp.src_layout == Layout::CHW ||
                     jqp.src_layout == Layout::NCHW ||
-                    jqp.src_layout == Layout::NCDHW) ? 1 : mayiuse(cpu::x64::avx512_common) ? 16 : 8;
+                    jqp.src_layout == Layout::NCDHW) ? 1 : 8;
 
     auto src_type_size = jqp.src_prc.size();
     auto dst_type_size = jqp.dst_prc.size();

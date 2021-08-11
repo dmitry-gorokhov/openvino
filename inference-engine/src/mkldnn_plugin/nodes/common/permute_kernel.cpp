@@ -23,7 +23,7 @@ using namespace Xbyak;
 
 #define GET_OFF(field) offsetof(jit_args_permute, field)
 
-template <cpu_isa_t isa>
+template <cpu_isa_t isa, typename Vmm>
 struct jit_uni_permute_kernel_f32 : public jit_uni_permute_kernel, public jit_generator {
     DECLARE_CPU_JIT_AUX_FUNCTIONS(jit_uni_permute_kernel_f32)
 
@@ -123,8 +123,7 @@ struct jit_uni_permute_kernel_f32 : public jit_uni_permute_kernel, public jit_ge
     }
 
 private:
-    using Vmm = typename conditional3<isa == cpu::x64::sse41, Xbyak::Xmm, isa == cpu::x64::avx2, Xbyak::Ymm, Xbyak::Zmm>::type;
-    uint32_t vlen = cpu_isa_traits<isa>::vlen;
+    uint32_t vlen = vmm_size_t<Vmm>::bytes;
 
     Xbyak::Reg64 reg_src = r8;
     Xbyak::Reg64 reg_dst = r9;
@@ -255,11 +254,11 @@ void PermuteKernel::prepareParams() {
     jcp.data_size = params.data_size;
 
     if (mayiuse(cpu::x64::avx512_common)) {
-        permute_kernel.reset(new jit_uni_permute_kernel_f32<cpu::x64::avx512_common>(jcp));
+        permute_kernel.reset(new jit_uni_permute_kernel_f32<cpu::x64::avx512_common, Ymm>(jcp));
     } else if (mayiuse(cpu::x64::avx2)) {
-        permute_kernel.reset(new jit_uni_permute_kernel_f32<cpu::x64::avx2>(jcp));
+        permute_kernel.reset(new jit_uni_permute_kernel_f32<cpu::x64::avx2, Ymm>(jcp));
     } else if (mayiuse(cpu::x64::sse41)) {
-        permute_kernel.reset(new jit_uni_permute_kernel_f32<cpu::x64::sse41>(jcp));
+        permute_kernel.reset(new jit_uni_permute_kernel_f32<cpu::x64::sse41, Xmm>(jcp));
     }
 
     if (permute_kernel)

@@ -73,7 +73,7 @@ struct EltwiseEmitter {
 
 }   // namespace
 
-template <cpu_isa_t isa>
+template <cpu_isa_t isa, typename Vmm>
 struct jit_uni_eltwise_generic : public MKLDNNPlugin::jit_uni_eltwise_kernel, public jit_generator {
     DECLARE_CPU_JIT_AUX_FUNCTIONS(jit_uni_eltwise_generic)
 
@@ -128,7 +128,7 @@ struct jit_uni_eltwise_generic : public MKLDNNPlugin::jit_uni_eltwise_kernel, pu
                 auto fakeQuantizeNode = dynamic_cast<MKLDNNFakeQuantizeNode*>(eltwiseNode.getFusedWith()[i].get());
                 fakeQuantizeNode->appendPostOps(post_ops);
 
-                quantization_injectors.push_back(std::make_shared<jit_uni_quantization_injector_f32<isa>>(
+                quantization_injectors.push_back(std::make_shared<jit_uni_quantization_injector_f32<isa, Vmm>>(
                         this, post_ops.get()->entry_[post_ops.len() - 1], vmm_d_weights, vmm_d_bias, reg_d_weights, reg_d_bias));
             }
         }
@@ -188,7 +188,7 @@ struct jit_uni_eltwise_generic : public MKLDNNPlugin::jit_uni_eltwise_kernel, pu
             L(unroll_loop_label);
             {
                 size_t loop_step = min_src_size;
-                size_t vec_step = cpu_isa_traits<isa>::vlen / exec_prc.size();
+                size_t vec_step = vmm_size_t<Vmm>::bytes / exec_prc.size();
 
                 cmp(reg_work_amount, loop_step);
                 jl(unroll_loop_end_label, T_NEAR);
@@ -238,7 +238,7 @@ struct jit_uni_eltwise_generic : public MKLDNNPlugin::jit_uni_eltwise_kernel, pu
         if (min_src_size == jep.dst_size) {
             L(main_loop_label);
             {
-                size_t loop_step = cpu_isa_traits<isa>::vlen / exec_prc.size();
+                size_t loop_step = vmm_size_t<Vmm>::bytes / exec_prc.size();
 
                 cmp(reg_work_amount, loop_step);
                 jl(main_loop_end_label, T_NEAR);
@@ -313,8 +313,6 @@ struct jit_uni_eltwise_generic : public MKLDNNPlugin::jit_uni_eltwise_kernel, pu
     }
 
 private:
-    using Vmm = typename conditional3<isa == x64::sse41, Xmm, isa == x64::avx2, Ymm, Zmm>::type;
-
     Reg64 get_src_reg(int idx) {
         return Reg64(r8.getIdx() + idx);
     }
@@ -356,7 +354,7 @@ private:
     std::shared_ptr<jit_emitter> eltwise_emitter = nullptr;
     std::vector<std::shared_ptr<jit_emitter>> post_op_emitters = {};
 
-    std::vector<std::shared_ptr<jit_uni_quantization_injector_f32<isa>>> quantization_injectors = {};
+    std::vector<std::shared_ptr<jit_uni_quantization_injector_f32<isa, Vmm>>> quantization_injectors = {};
 
     std::vector<Precision> exec_precisions_priority = {
         Precision::U8,
@@ -1099,7 +1097,7 @@ void MKLDNNEltwiseNode::initSupportedPrimitiveDescriptors() {
 
                 return TensorDesc(prc, edge->getDims().ToSizeVector(), {blocks, order, offset});
             } else if (lt == Blocked && edge->getDims().ndims() != 1 && edge->getDims()[1] != 1) {
-                size_t blockSize = mayiuse(x64::avx512_common) ? 16 : 8;
+                size_t blockSize = 8;
 
                 std::vector<size_t> blocks = edge->getDims().ToSizeVector();
                 std::vector<size_t> order(blocks.size());
@@ -1395,11 +1393,11 @@ void MKLDNNEltwiseNode::createPrimitive() {
     jep.oc_size = oc_size;
 
     if (mayiuse(x64::avx512_common)) {
-        eltwise_kernel.reset(new jit_uni_eltwise_generic<x64::avx512_common>(jep, *this));
+        eltwise_kernel.reset(new jit_uni_eltwise_generic<x64::avx512_common, Ymm>(jep, *this));
     } else if (mayiuse(x64::avx2)) {
-        eltwise_kernel.reset(new jit_uni_eltwise_generic<x64::avx2>(jep, *this));
+        eltwise_kernel.reset(new jit_uni_eltwise_generic<x64::avx2, Ymm>(jep, *this));
     } else if (mayiuse(x64::sse41)) {
-        eltwise_kernel.reset(new jit_uni_eltwise_generic<x64::sse41>(jep, *this));
+        eltwise_kernel.reset(new jit_uni_eltwise_generic<x64::sse41, Xmm>(jep, *this));
     }
 
     if (eltwise_kernel)

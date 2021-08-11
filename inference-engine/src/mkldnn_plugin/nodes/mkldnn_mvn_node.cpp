@@ -45,7 +45,7 @@ static inline bool isFloatCompatible(memory::data_type type) {
 
 // normalize_variance = false : src->mean
 // normalize_variance = true : src+mean->variance:sqr(x-mean)
-template <cpu_isa_t isa>
+template <cpu_isa_t isa, typename Vmm>
 struct jit_uni_mvn_mean_variance_kernel_f32 : public jit_uni_mvn_mean_variance_kernel, public jit_generator {
     DECLARE_CPU_JIT_AUX_FUNCTIONS(jit_uni_mvn_mean_kernel_f32)
 
@@ -202,10 +202,7 @@ struct jit_uni_mvn_mean_variance_kernel_f32 : public jit_uni_mvn_mean_variance_k
     }
 
 private:
-    using Vmm = typename conditional3<isa == cpu::x64::sse41, Xbyak::Xmm, isa == cpu::x64::avx2,
-            Xbyak::Ymm, Xbyak::Zmm>::type;
-
-    const int vlen = cpu_isa_traits<isa>::vlen;
+    const size_t vlen = vmm_size_t<Vmm>::bytes;
     const int step = vlen / sizeof(float);
     int tail_num = 0;
 
@@ -355,7 +352,7 @@ private:
 };
 
 // mean,variance->mvn
-template <cpu_isa_t isa>
+template <cpu_isa_t isa, typename Vmm>
 struct jit_uni_mvn_kernel_f32 : public jit_uni_mvn_kernel, public jit_generator {
     DECLARE_CPU_JIT_AUX_FUNCTIONS(jit_uni_mvn_kernel_f32)
 
@@ -371,13 +368,13 @@ struct jit_uni_mvn_kernel_f32 : public jit_uni_mvn_kernel, public jit_generator 
         for (int i = 0; i < p.len(); i++) {
             auto &post_op = p.entry_[i];
             if (post_op.is_eltwise()) {
-                eltwise_injectors.push_back(std::make_shared<jit_uni_eltwise_injector_f32<isa>>(
+                eltwise_injectors.push_back(std::make_shared<jit_uni_eltwise_injector_f32<isa, Vmm>>(
                         this, post_op.eltwise.alg, post_op.eltwise.alpha, post_op.eltwise.beta, post_op.eltwise.scale));
             } else if (post_op.is_depthwise()) {
-                depthwise_injectors.push_back(std::make_shared<jit_uni_depthwise_injector_f32<isa>>(
+                depthwise_injectors.push_back(std::make_shared<jit_uni_depthwise_injector_f32<isa, Vmm>>(
                         this, post_op.depthwise.alg));
             } else if (post_op.is_quantization()) {
-                quantization_injectors.push_back(std::make_shared<jit_uni_quantization_injector_f32<isa>>(
+                quantization_injectors.push_back(std::make_shared<jit_uni_quantization_injector_f32<isa, Vmm>>(
                         this, post_op, vmm_d_weights, vmm_d_bias, reg_d_weights, reg_d_bias));
             }
         }
@@ -485,10 +482,7 @@ struct jit_uni_mvn_kernel_f32 : public jit_uni_mvn_kernel, public jit_generator 
     }
 
 private:
-    using Vmm = typename conditional3<isa == cpu::x64::sse41, Xbyak::Xmm, isa == cpu::x64::avx2,
-            Xbyak::Ymm, Xbyak::Zmm>::type;
-
-    const int vlen = cpu_isa_traits<isa>::vlen;
+    const size_t vlen = vmm_size_t<Vmm>::bytes;
     const int step = vlen / sizeof(float);
     int tail_num = 0;
 
@@ -519,9 +513,9 @@ private:
     std::unique_ptr<jit_load_emitter> load_emitter = nullptr;
     std::unique_ptr<jit_store_emitter> store_emitter = nullptr;
 
-    std::vector<std::shared_ptr<jit_uni_eltwise_injector_f32<isa>>> eltwise_injectors;
-    std::vector<std::shared_ptr<jit_uni_depthwise_injector_f32<isa>>> depthwise_injectors;
-    std::vector<std::shared_ptr<jit_uni_quantization_injector_f32<isa>>> quantization_injectors;
+    std::vector<std::shared_ptr<jit_uni_eltwise_injector_f32<isa, Vmm>>> eltwise_injectors;
+    std::vector<std::shared_ptr<jit_uni_depthwise_injector_f32<isa, Vmm>>> depthwise_injectors;
+    std::vector<std::shared_ptr<jit_uni_quantization_injector_f32<isa, Vmm>>> quantization_injectors;
 
     std::vector<size_t> store_pool_gpr_idxs;
     std::vector<size_t> store_pool_vec_idxs;
@@ -777,9 +771,9 @@ void MKLDNNMVNNode::initSupportedPrimitiveDescriptors() {
         // blk
         if (impl_desc_type::jit_avx512 == impl_type) {
             if (getParentEdgeAt(0)->getDims().ndims() == 4) {
-                pushDesc(memory::format_tag::nChw16c, impl_type);
+                pushDesc(memory::format_tag::nChw8c, impl_type);
             } else if (getParentEdgeAt(0)->getDims().ndims() == 5) {
-                pushDesc(memory::format_tag::nCdhw16c, impl_type);
+                pushDesc(memory::format_tag::nCdhw8c, impl_type);
             }
         } else if (impl_desc_type::jit_avx2 ==  impl_type || impl_desc_type::jit_sse42 == impl_type) {
             if (getParentEdgeAt(0)->getDims().ndims() == 4) {
@@ -821,31 +815,31 @@ void MKLDNNMVNNode::createPrimitive() {
     std::tie(N, jcp.C, jcp.D, jcp.H, jcp.W) = shape5D;
 
     if (mayiuse(cpu::x64::avx512_common)) {
-        mvn_kernel.reset(new jit_uni_mvn_kernel_f32<cpu::x64::avx512_common>(jcp, *attr.get()));
+        mvn_kernel.reset(new jit_uni_mvn_kernel_f32<cpu::x64::avx512_common, Ymm>(jcp, *attr.get()));
 
         jcp.normalize_variance = false;
-        mvn_mean_kernel.reset(new jit_uni_mvn_mean_variance_kernel_f32<cpu::x64::avx512_common>(jcp));
+        mvn_mean_kernel.reset(new jit_uni_mvn_mean_variance_kernel_f32<cpu::x64::avx512_common, Ymm>(jcp));
         if (normalizeVariance_) {
             jcp.normalize_variance = true;
-            mvn_variance_kernel.reset(new jit_uni_mvn_mean_variance_kernel_f32<cpu::x64::avx512_common>(jcp));
+            mvn_variance_kernel.reset(new jit_uni_mvn_mean_variance_kernel_f32<cpu::x64::avx512_common, Ymm>(jcp));
         }
     } else if (mayiuse(cpu::x64::avx2)) {
-        mvn_kernel.reset(new jit_uni_mvn_kernel_f32<cpu::x64::avx2>(jcp, *attr.get()));
+        mvn_kernel.reset(new jit_uni_mvn_kernel_f32<cpu::x64::avx2, Ymm>(jcp, *attr.get()));
 
         jcp.normalize_variance = false;
-        mvn_mean_kernel.reset(new jit_uni_mvn_mean_variance_kernel_f32<cpu::x64::avx2>(jcp));
+        mvn_mean_kernel.reset(new jit_uni_mvn_mean_variance_kernel_f32<cpu::x64::avx2, Ymm>(jcp));
         if (normalizeVariance_) {
             jcp.normalize_variance = true;
-            mvn_variance_kernel.reset(new jit_uni_mvn_mean_variance_kernel_f32<cpu::x64::avx2>(jcp));
+            mvn_variance_kernel.reset(new jit_uni_mvn_mean_variance_kernel_f32<cpu::x64::avx2, Ymm>(jcp));
         }
     } else if (mayiuse(cpu::x64::sse41)) {
-        mvn_kernel.reset(new jit_uni_mvn_kernel_f32<cpu::x64::sse41>(jcp, *attr.get()));
+        mvn_kernel.reset(new jit_uni_mvn_kernel_f32<cpu::x64::sse41, Xmm>(jcp, *attr.get()));
 
         jcp.normalize_variance = false;
-        mvn_mean_kernel.reset(new jit_uni_mvn_mean_variance_kernel_f32<cpu::x64::sse41>(jcp));
+        mvn_mean_kernel.reset(new jit_uni_mvn_mean_variance_kernel_f32<cpu::x64::sse41, Xmm>(jcp));
         if (normalizeVariance_) {
             jcp.normalize_variance = true;
-            mvn_variance_kernel.reset(new jit_uni_mvn_mean_variance_kernel_f32<cpu::x64::sse41>(jcp));
+            mvn_variance_kernel.reset(new jit_uni_mvn_mean_variance_kernel_f32<cpu::x64::sse41, Xmm>(jcp));
         }
     }
 
@@ -933,7 +927,7 @@ void MKLDNNMVNNode::execute(mkldnn::stream strm) {
 void MKLDNNMVNNode::mvn_pln(const uint8_t* src_data, uint8_t* dst_data, const SizeVector& dims) {
     size_t blk_size = 1;  // blk size in vmm
     if (mayiuse(cpu::x64::avx512_common)) {
-        blk_size = 16;
+        blk_size = 8;
     } else if (mayiuse(cpu::x64::avx2)) {
         blk_size = 8;
     } else if (mayiuse(cpu::x64::sse41)) {
@@ -1166,7 +1160,7 @@ void MKLDNNMVNNode::mvn_ref(const uint8_t* src_data, uint8_t* dst_data, const Si
 void MKLDNNMVNNode::mvn_blk(const uint8_t* src_data, uint8_t* dst_data, const SizeVector& dims) {
     size_t blk_size = 1;  // channel blk for memory layout
     if (mayiuse(cpu::x64::avx512_common)) {
-        blk_size = 16;
+        blk_size = 8;
     } else {
         blk_size = 8;
     }

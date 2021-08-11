@@ -38,7 +38,7 @@ using namespace Xbyak;
 
 #define GET_OFF(field) offsetof(jit_interpolate_call_args, field)
 
-template <cpu_isa_t isa>
+template <cpu_isa_t isa, typename Vmm>
 struct jit_uni_interpolate_kernel_f32 : public jit_uni_interpolate_kernel, public jit_generator {
     DECLARE_CPU_JIT_AUX_FUNCTIONS(jit_uni_interpolate_kernel_f32)
 
@@ -55,18 +55,18 @@ struct jit_uni_interpolate_kernel_f32 : public jit_uni_interpolate_kernel, publi
         for (int i = 0; i < p.len(); i++) {
             auto &post_op = p.entry_[i];
             if (post_op.is_eltwise()) {
-                eltwise_injectors.push_back(std::make_shared<jit_uni_eltwise_injector_f32<isa>>(
+                eltwise_injectors.push_back(std::make_shared<jit_uni_eltwise_injector_f32<isa, Vmm>>(
                         this,
                         post_op.eltwise.alg,
                         post_op.eltwise.alpha,
                         post_op.eltwise.beta,
                         1));
             } else if (post_op.is_depthwise()) {
-                depthwise_injectors.push_back(std::make_shared<jit_uni_depthwise_injector_f32<isa>>(
+                depthwise_injectors.push_back(std::make_shared<jit_uni_depthwise_injector_f32<isa, Vmm>>(
                         this,
                         post_op.depthwise.alg));
             } else if (post_op.is_quantization()) {
-                quantization_injectors.push_back(std::make_shared<jit_uni_quantization_injector_f32<isa>>(
+                quantization_injectors.push_back(std::make_shared<jit_uni_quantization_injector_f32<isa, Vmm>>(
                         this, post_op, vmm_d_weights, vmm_d_bias, reg_d_weights, reg_d_bias));
             }
         }
@@ -160,10 +160,7 @@ struct jit_uni_interpolate_kernel_f32 : public jit_uni_interpolate_kernel, publi
     }
 
 private:
-    using Vmm = typename conditional3<isa == cpu::x64::sse41, Xbyak::Xmm, isa == cpu::x64::avx2,
-            Xbyak::Ymm, Xbyak::Zmm>::type;
-
-    const int vlen = cpu_isa_traits<isa>::vlen;
+    const size_t vlen = vmm_size_t<Vmm>::bytes;
 
     Xbyak::Reg64 reg_src = r8;
     Xbyak::Reg64 reg_src_aux = r15;
@@ -246,9 +243,9 @@ private:
 
     std::unique_ptr<jit_emu_vcvtneps2bf16> emu_vcvtneps2bf16 = nullptr;
 
-    std::vector<std::shared_ptr<jit_uni_eltwise_injector_f32<isa>>> eltwise_injectors;
-    std::vector<std::shared_ptr<jit_uni_depthwise_injector_f32<isa>>> depthwise_injectors;
-    std::vector<std::shared_ptr<jit_uni_quantization_injector_f32<isa>>> quantization_injectors;
+    std::vector<std::shared_ptr<jit_uni_eltwise_injector_f32<isa, Vmm>>> eltwise_injectors;
+    std::vector<std::shared_ptr<jit_uni_depthwise_injector_f32<isa, Vmm>>> depthwise_injectors;
+    std::vector<std::shared_ptr<jit_uni_quantization_injector_f32<isa, Vmm>>> quantization_injectors;
 
     void nn_planar() {
         Xbyak::Reg64 reg_index_h = reg_src_aux1;
@@ -1935,7 +1932,7 @@ void MKLDNNInterpolateNode::initSupportedPrimitiveDescriptors() {
             if (mayiuse(cpu::x64::avx512_common)) {
                 pushDesc(memory::format_tag::nhwc, jit_avx512);
                 if (channels != 1)
-                    pushDesc(memory::format_tag::nChw16c, jit_avx512);
+                    pushDesc(memory::format_tag::nChw8c, jit_avx512);
             } else if (mayiuse(cpu::x64::avx2)) {
                 pushDesc(memory::format_tag::nhwc, jit_avx2);
                 if (channels != 1)
@@ -1949,7 +1946,7 @@ void MKLDNNInterpolateNode::initSupportedPrimitiveDescriptors() {
             if (mayiuse(cpu::x64::avx512_common)) {
                 pushDesc(memory::format_tag::ndhwc, jit_avx512);
                 if (channels != 1)
-                    pushDesc(memory::format_tag::nCdhw16c, jit_avx512);
+                    pushDesc(memory::format_tag::nCdhw8c, jit_avx512);
             } else if (mayiuse(cpu::x64::avx2)) {
                 pushDesc(memory::format_tag::ndhwc, jit_avx2);
                 if (channels != 1)
@@ -2021,16 +2018,16 @@ void MKLDNNInterpolateNode::createPrimitive() {
     if (mode == InterpolateMode::nearest || mode == InterpolateMode::linear_onnx || mode == InterpolateMode::cubic) {
         if (jcp.layout != InterpolateLayoutType::planar) {
             if (mayiuse(cpu::x64::avx512_common)) {
-                interpolateKernel.reset(new jit_uni_interpolate_kernel_f32<cpu::x64::avx512_common>(jcp, *attr.get()));
+                interpolateKernel.reset(new jit_uni_interpolate_kernel_f32<cpu::x64::avx512_common, Ymm>(jcp, *attr.get()));
             } else if (mayiuse(cpu::x64::avx2)) {
-                interpolateKernel.reset(new jit_uni_interpolate_kernel_f32<cpu::x64::avx2>(jcp, *attr.get()));
+                interpolateKernel.reset(new jit_uni_interpolate_kernel_f32<cpu::x64::avx2, Ymm>(jcp, *attr.get()));
             } else if (mayiuse(cpu::x64::sse41)) {
-                interpolateKernel.reset(new jit_uni_interpolate_kernel_f32<cpu::x64::sse41>(jcp, *attr.get()));
+                interpolateKernel.reset(new jit_uni_interpolate_kernel_f32<cpu::x64::sse41, Xmm>(jcp, *attr.get()));
             }
         } else {
             // gather ISA(for planar JIT kernel) for avx2 and fp32
             if (mayiuse(cpu::x64::avx2) && inputPrec == Precision::FP32) {
-                interpolateKernel.reset(new jit_uni_interpolate_kernel_f32<cpu::x64::avx2>(jcp, *attr.get()));
+                interpolateKernel.reset(new jit_uni_interpolate_kernel_f32<cpu::x64::avx2, Ymm>(jcp, *attr.get()));
             }
         }
         if (interpolateKernel)
@@ -2485,7 +2482,7 @@ void MKLDNNInterpolateNode::execute(mkldnn::stream strm) {
             });
             src_data = src_data_pad;
         } else if (configured_for_layout == InterpolateLayoutType::block) {
-            size_t blkSize = mayiuse(cpu::x64::avx512_common) ? 16 : 8;
+            size_t blkSize = mayiuse(cpu::x64::avx512_common) ? 8 : 8;
             size_t CB = div_up(srcDimPad5d[1], blkSize);
             size_t eltsTotal = srcDimPad5d[0] * CB * srcDimPad5d[2] * srcDimPad5d[3] * srcDimPad5d[4] * blkSize;
             srcPadded.resize(eltsTotal * srcDataSize, 0x0);
@@ -2603,7 +2600,7 @@ void MKLDNNInterpolateNode::NNCGathered(const uint8_t *in_ptr_, uint8_t *out_ptr
                 (*interpolateKernel)(&arg);
             });
         } else {  // for blk
-            int blk_size = mayiuse(cpu::x64::avx512_common) ? 16 : 8;
+            int blk_size = mayiuse(cpu::x64::avx512_common) ? 8 : 8;
             int CB = div_up(C, blk_size);
             const uint8_t *in_ptr = in_ptr_ + (IW * IH * ID * CB * blk_size * b) * srcDataSize;
             uint8_t *out_ptr = out_ptr_ + (OW * OH * OD * CB * blk_size * b) * dstDataSize;
@@ -2721,7 +2718,7 @@ void MKLDNNInterpolateNode::linearOnnxCGathered(const uint8_t *in_ptr_, uint8_t 
 
     bool isByChannel = (configured_for_layout == by_channel) ? true : false;
 
-    int blkSize = mayiuse(cpu::x64::avx512_common) ? 16 : 8;
+    int blkSize = mayiuse(cpu::x64::avx512_common) ? 8 : 8;
     int CB = isByChannel ? 1 : div_up(C, blkSize);
     int CGatherLen = isByChannel ? C : blkSize;
     int workAmount = isByChannel ? C : CB;
@@ -2990,7 +2987,7 @@ void MKLDNNInterpolateNode::cubicCGathered(const uint8_t *in_ptr_, uint8_t *out_
     int *yOrigin = static_cast<int*>(&indexTable[(CUBIC_GRID_LEN + idxNum) * OW]);
     float *yFactor = reinterpret_cast<float*>(&indexTable[(CUBIC_GRID_LEN + idxNum) * OW + OH]);
 
-    int blkSize = mayiuse(cpu::x64::avx512_common) ? 16 : 8;
+    int blkSize = mayiuse(cpu::x64::avx512_common) ? 8 : 8;
     int CB = div_up(C, blkSize);
     int CSize = configured_for_layout == InterpolateLayoutType::by_channel ? C : blkSize * CB;
     int CGatherLen = configured_for_layout == InterpolateLayoutType::by_channel ? C : blkSize;
