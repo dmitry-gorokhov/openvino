@@ -106,7 +106,7 @@ private:
     const size_t X_AXIS = 0;
     const size_t Y_AXIS = 1;
 
-    bool isWino = false;
+    bool isWino = true;
 
     mkldnn::memory::data_type outputDataType;
 

@@ -84,9 +84,10 @@ public:
 
     bool isSame(mkldnn::memory::format_tag fmt) const;
 
+    mkldnn::memory::desc desc;
+
 private:
     static constexpr size_t UNREACHABLE_DIM = std::numeric_limits<size_t>::max();
-    mkldnn::memory::desc desc;
 };
 
 

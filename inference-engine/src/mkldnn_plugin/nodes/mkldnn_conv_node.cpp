@@ -136,14 +136,14 @@ void MKLDNNConvolutionNode::getSupportedDescriptors() {
 
     withBiases = getOriginalInputsNumber() == 3;
 
-    if (!implPriorities.empty()) {
-        isPrimitivesPriorityDefined = true;
-        // winograd support only constant weights and bias
-        isWino = std::find(implPriorities.begin(), implPriorities.end(), impl_desc_type::jit_avx512_winograd) != implPriorities.end() &&
-                 mkldnn::impl::cpu::x64::mayiuse(mkldnn::impl::cpu::x64::avx512_common) && !canBeExecutedInInt8() &&
-                 getParentEdgeAt(1)->getParent()->isConstant() && getParentEdgeAt(1)->getParent()->getType() == Input &&
-                 (withBiases ? (getParentEdgeAt(2)->getParent()->isConstant() && getParentEdgeAt(2)->getParent()->getType() == Input) : true);
-    }
+//    if (!implPriorities.empty()) {
+//        isPrimitivesPriorityDefined = true;
+//        // winograd support only constant weights and bias
+//        isWino = std::find(implPriorities.begin(), implPriorities.end(), impl_desc_type::jit_avx512_winograd) != implPriorities.end() &&
+//                 mkldnn::impl::cpu::x64::mayiuse(mkldnn::impl::cpu::x64::avx512_common) && !canBeExecutedInInt8() &&
+//                 getParentEdgeAt(1)->getParent()->isConstant() && getParentEdgeAt(1)->getParent()->getType() == Input &&
+//                 (withBiases ? (getParentEdgeAt(2)->getParent()->isConstant() && getParentEdgeAt(2)->getParent()->getType() == Input) : true);
+//    }
 
     if (isWinograd()) {
         internalBlobDesc.emplace_back([&](primitive_desc_iterator &primitive_desc_it, size_t idx) -> MKLDNNMemoryDesc {
@@ -594,6 +594,11 @@ void MKLDNNConvolutionNode::createDescriptor(const std::vector<InferenceEngine::
     MKLDNNDims blocked_weightDims(weightDims);
     MKLDNNDims blocked_biasesDims(biasesDims);
     MKLDNNMemoryDesc wgh_candidate{blocked_weightDims, wdt, memory::format_tag::any};
+
+//    if (getParentEdgesAtPort(0)[0]->getDims()[1] != 3) {
+        wgh_candidate.desc.data.extra.flags = dnnl_memory_extra_flag_conv_compression;
+        wgh_candidate.desc.data.extra.compensation_mask = 219;
+//    }
 
     std::vector<mkldnn::algorithm> algorithms;
 
