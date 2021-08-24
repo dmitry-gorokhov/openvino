@@ -77,10 +77,13 @@ MKLDNNPlugin::BroadcastMatMul::BroadcastMatMul() {
 
         std::shared_ptr<ngraph::Node> matmul_new;
 
-        matmul_new = std::make_shared<ngraph::op::MatMul>(broadcastInput0 ? broadcastInput0 : input0,
-                                                          broadcastInput1 ? broadcastInput1 : input1,
-                                                          matmul->get_transpose_a(),
-                                                          matmul->get_transpose_b());
+        matmul_new = matmul->clone_with_new_inputs({broadcastInput0 ? broadcastInput0 : input0,
+                                                    broadcastInput1 ? broadcastInput1 : input1});
+
+//        matmul_new = std::make_shared<ngraph::op::MatMul>(broadcastInput0 ? broadcastInput0 : input0,
+//                                                          broadcastInput1 ? broadcastInput1 : input1,
+//                                                          matmul->get_transpose_a(),
+//                                                          matmul->get_transpose_b());
         new_ops.push_back(matmul_new);
         matmul_new->set_friendly_name(matmul->get_friendly_name());
 
