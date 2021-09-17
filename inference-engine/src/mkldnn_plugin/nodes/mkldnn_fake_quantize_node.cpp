@@ -23,6 +23,7 @@
 #include "memory_desc/dnnl_blocked_memory_desc.h"
 #include "utils/ngraph_utils.hpp"
 #include "common/cpu_memcpy.h"
+#include "nodes/mkldnn_split_node.h"
 
 // Quantization ranges validation is switched off by default in order to avoid regressions on user side
 // #define VALIDATE_QUANTIZATION_RANGES
@@ -1191,6 +1192,10 @@ void MKLDNNFakeQuantizeNode::init() {
         outputPrecision = Precision::BIN;
     } else {
         inputPrecision = getOriginalInputPrecisionAtPort(0);
+        if (auto split = dynamic_cast<const MKLDNNSplitNode*>(getParentEdgesAtPort(0)[0]->getParent().get())) {
+            inputPrecision = split->getOriginalInputPrecisionAtPort(0);
+        }
+
         outputPrecision = getOriginalOutputPrecisionAtPort(0);
 
         if (inputPrecision != Precision::FP32 && inputPrecision != Precision::U8 && inputPrecision != Precision::I8)

@@ -510,6 +510,16 @@ std::string LayerTestsCommon::getRuntimePrecisionByType(const std::string& layer
     return "";
 }
 
+std::map<std::string, ngraph::Node::RTMap> LayerTestsCommon::getRuntimeInfo() {
+    const auto execGraph = executableNetwork.GetExecGraphInfo();
+    const auto function = execGraph.getFunction();
+    std::map<std::string, ngraph::Node::RTMap> runtimeInfo;
+    for (const auto& op : function->get_ops()) {
+        runtimeInfo[op->get_friendly_name()] = op->get_rt_info();
+    }
+    return runtimeInfo;
+}
+
 #ifndef NDEBUG
 void LayerTestsCommon::showRuntimePrecisions() {
     const auto execGraph = executableNetwork.GetExecGraphInfo();
@@ -517,13 +527,17 @@ void LayerTestsCommon::showRuntimePrecisions() {
 
     for (const auto& op : execFunction->get_ops()) {
         const auto& rtInfo = op->get_rt_info();
+
+        const auto& nameIt = rtInfo.find("originalLayersNames");
+        const auto name = ngraph::as_type_ptr<ngraph::VariantWrapper<std::string>>(nameIt->second)->get();
+
         const auto& typeIt = rtInfo.find("layerType");
-
         const auto type = ngraph::as_type_ptr<ngraph::VariantWrapper<std::string>>(typeIt->second)->get();
-        const auto& it = rtInfo.find("runtimePrecision");
 
+        const auto& it = rtInfo.find("runtimePrecision");
         const auto rtPrecisionPtr = ngraph::as_type_ptr<ngraph::VariantWrapper<std::string>>(it->second);
-        std::cout << type << ": " << rtPrecisionPtr->get() << std::endl;
+
+        std::cout << type << "(" << name << "): " << rtPrecisionPtr->get() << std::endl;
     }
 }
 #endif
