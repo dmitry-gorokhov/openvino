@@ -463,8 +463,9 @@ NGRAPH_TEST(${BACKEND_NAME}, gru_cell_bias_clip) {
         0.6549655f + 0.6699164f,
     });
 
-    test_case.add_expected_output<float>(Shape{batch_size, hidden_size},
-                                         {0.48567441f, 0.99532890f, 0.83759373f, 0.50158751f, 0.89025831f, 0.60041058f});
+    test_case.add_expected_output<float>(
+        Shape{batch_size, hidden_size},
+        {0.48567441f, 0.99532890f, 0.83759373f, 0.50158751f, 0.89025831f, 0.60041058f});
 
     test_case.run();
 }
