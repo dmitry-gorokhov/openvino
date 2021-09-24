@@ -95,7 +95,10 @@ void fillRemoteBlobs(const std::vector<std::string>& inputFiles,
                    << slog::endl;
     }
     auto context = exeNetwork.GetContext();
-    auto oclContext = std::dynamic_pointer_cast<InferenceEngine::gpu::ClContext>(context)->get();
+    auto oclContextPtr = std::dynamic_pointer_cast<InferenceEngine::gpu::ClContext>(context);
+    if (!oclContextPtr)
+        IE_THROW() << "Can't cast context to ClContext";
+    auto oclContext = oclContextPtr->get();
     auto oclInstance = std::make_shared<OpenCL>(oclContext);
 
     auto setShared = [&](size_t requestId,

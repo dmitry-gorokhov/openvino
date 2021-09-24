@@ -739,6 +739,8 @@ void CLDNNInferRequest::exec_and_parse_dynamic() {
             for (auto& item : _inputs) {
                 const cldnn::primitive_id& inputName = item.first;
                 const Blob::Ptr inputBlob = item.second;
+                if (!inputBlob)
+                    IE_THROW() << "Input blob is nullable";
 
                 auto inputLayout = m_graph->GetInputLayouts().at(inputName);
                 inputLayout.size.batch[0] = mask;
@@ -916,6 +918,8 @@ void CLDNNInferRequest::prepare_output(const cldnn::primitive_id& outputName, Bl
 
 InferenceEngine::Blob::Ptr CLDNNInferRequest::create_device_blob(const InferenceEngine::TensorDesc& desc, const cldnn::layout& layout) {
     auto blobPtr = std::make_shared<CLDNNRemoteCLbuffer>(m_graph->GetContext(), m_graph->GetNetwork()->get_stream(), desc, layout);
+    if (!blobPtr)
+        IE_THROW() << "Cretaed CLDNNRemoteCLbuffer nullable";
     getBlobImpl(blobPtr.get())->allocate();
     return blobPtr;
 }

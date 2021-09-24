@@ -33,6 +33,9 @@ std::shared_ptr<void> load_shared_object(const wchar_t* path) {
 #endif  // ENABLE_UNICODE_PATH_SUPPORT
 
 void* get_symbol(const std::shared_ptr<void>& shared_object, const char* symbol_name) {
+    if (symbol_name == nullptr) {
+        IE_THROW() << "Cannot get symbol because symbol name is empty!";
+    }
     if (!shared_object) {
         IE_THROW() << "Cannot get '" << symbol_name << "' content from unknown library!";
     }

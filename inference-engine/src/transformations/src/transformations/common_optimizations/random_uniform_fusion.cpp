@@ -58,6 +58,8 @@ ngraph::pass::RandomUniformFusion::RandomUniformFusion() {
 
         const auto& mul_add = pattern_map.at(mul_add_pattern);
         const auto mul_add_ptr = std::dynamic_pointer_cast<ngraph::Node>(mul_add.get_node_shared_ptr());
+        if (!mul_add_ptr)
+            return false;
         const auto new_mul_add1 = mul_add_ptr->clone_with_new_inputs({ru->input_value(1), new_const});
         const auto new_mul_add2 = mul_add_ptr->clone_with_new_inputs({ru->input_value(2), new_const});
 

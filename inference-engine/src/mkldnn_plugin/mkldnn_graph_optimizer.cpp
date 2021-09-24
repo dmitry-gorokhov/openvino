@@ -1228,7 +1228,7 @@ void MKLDNNGraphOptimizer::FuseMatmulAndAddAsBinary(MKLDNNGraph &graph) {
                 parent2 = parentEdge.lock()->getParent();
         }
 
-        if (parent1->isConstant() || parent2->isConstant())
+        if (parent1 == nullptr || parent2 == nullptr || parent1->isConstant() || parent2->isConstant())
             continue;
 
         auto isSuitableParent = [](const MKLDNNNodePtr& parent) {

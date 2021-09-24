@@ -245,7 +245,7 @@ protected:
     element::Type deqPrecision;
 
     static const char originalLayerPostfix[];
-    TransformationContext* context;
+    TransformationContext* context = nullptr;
 
 protected:
     std::shared_ptr<ngraph::Node> moveDequantizationAfter(
