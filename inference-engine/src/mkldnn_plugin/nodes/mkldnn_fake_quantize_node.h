@@ -122,6 +122,14 @@ public:
 
     static bool isSupportedOperation(const std::shared_ptr<const ngraph::Node>& op, std::string& errorMessage) noexcept;
 
+    enum Policy {
+        PerChannel, // all FQ operations are per channel
+        PerTensor,  // all FQ operations are per tensor
+        Mixed,      // some per channel, some per tensor
+    };
+
+    Policy getPolicy() const { return policy; }
+
     MKLDNNMemoryPtr cropLowMemory;
     MKLDNNMemoryPtr cropHighMemory;
     MKLDNNMemoryPtr inputScaleMemory;
@@ -182,6 +190,8 @@ private:
     std::shared_ptr<jit_uni_quantize_kernel> quantize_kernel = nullptr;
 
     std::string errorPrefix;
+
+    Policy policy;
 };
 
 }  // namespace MKLDNNPlugin

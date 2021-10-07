@@ -1347,21 +1347,33 @@ void MKLDNNNode::fillScalesAndShifts(const MKLDNNNodePtr& parentNode,
 
     const size_t constPort = getParentEdgesAtPort(0)[0]->getParent() == parentNode ? 1 : 0;
 
-    if (one_of(getAlgorithm(), EltwiseMultiply, EltwiseDivide, EltwisePrelu)) {
+    switch (getAlgorithm()) {
+    case EltwiseMultiply:
+    case EltwiseDivide:
+    case EltwisePrelu: {
         fillValuesFrom(getParentEdgesAtPort(constPort)[0]->getParent(), scales);
-    } else if (one_of(getAlgorithm(), EltwiseAdd, EltwiseSubtract)) {
+        break;
+    }
+    case EltwiseAdd:
+    case EltwiseSubtract: {
         fillValuesFrom(getParentEdgesAtPort(constPort)[0]->getParent(), shifts);
-    } else if (one_of(getAlgorithm(), EltwiseMulAdd)) {
+        break;
+    }
+    case EltwiseMulAdd: {
         fillValuesFrom(getParentEdgesAtPort(1)[0]->getParent(), scales);
         fillValuesFrom(getParentEdgesAtPort(2)[0]->getParent(), shifts);
-    } else if (one_of(getAlgorithm(), EltwisePowerStatic)) {
+        break;
+    }
+    case EltwisePowerStatic: {
         const auto power = dynamic_cast<const MKLDNNEltwiseNode *>(this);
         if (!power) {
             IE_THROW() << "Cannot cast " << getName() << " to MKLDNNEltwiseNode";
         }
         scales.push_back(power->getBeta());
         shifts.push_back(power->getGamma());
-    } else {
+        break;
+    }
+    default:
         IE_THROW() << "Can't fill scale and shifts for node: " << getName() << " with type: " << NameFromType(getType());
     }
 
