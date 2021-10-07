@@ -3,8 +3,10 @@
 //
 
 #include "shared_test_classes/single_layer/mat_mul.hpp"
+#include "ie_precision.hpp"
 #include "test_utils/fusing_test_utils.hpp"
 #include "ngraph_functions/builders.hpp"
+#include <string>
 
 using namespace ngraph;
 using namespace InferenceEngine;
@@ -63,11 +65,10 @@ protected:
         bool transpA = shapeRelatedParams.input1.second;
         bool transpB = shapeRelatedParams.input2.second;
 
-        /* @todo
-         * Currently nodes are not fused thought Reshape
-         * Check can be deleted after this limitation is gone
-         */
-        if (nodeType == MatMulNodeType::MatMul && inShapeA.size() < 4 && inShapeB.size() < 4)
+        // see comment in MKLDNNMatMulNode::canFuse
+        if (!(nodeType == MatMulNodeType::MatMul &&
+              std::get<0>(fusingParams) && std::get<0>(fusingParams)->getFusedOpsNames().find("(PerChannel)") != std::string::npos &&
+              std::max(inShapeA.size(), inShapeB.size()) > 2))
             std::tie(postOpMgrPtr, fusedOps) = fusingParams;
 
         configuration.insert(additionalConfig.begin(), additionalConfig.end());
@@ -114,6 +115,9 @@ const std::vector<bool> transpose = {
     true, false
 };
 
+
+std::map<std::string, std::string> emptyAdditionalConfig;
+
 std::vector<std::map<std::string, std::string>> additionalConfig {
     std::map<std::string, std::string>{/* empty config */},
     {{PluginConfigParams::KEY_ENFORCE_BF16, PluginConfigParams::YES}}
@@ -124,14 +128,14 @@ const std::vector<Precision> netPRCs {
     Precision::BF16
 };
 
-/* ============= FullyConnected ============= */
-namespace fullyConnected {
-
-const auto fusingBiasFC = fusingSpecificParams{std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
+const auto fusingBias = fusingSpecificParams{std::make_shared<postNodesMgr>(std::vector<postNodeBuilder>{
             {[](std::shared_ptr<Node> inpNode, const element::Type& ngPrc, ParameterVector& params) {
                 auto bias = builder::makeConstant(ngPrc, Shape({inpNode->get_output_shape(0).back()}), std::vector<float>{}, true);
                 return std::make_shared<opset1::Add>(inpNode, bias);
-            }, "fusingBiasFC"}}), {"Add"}};
+            }, "fusingBias"}}), {"Add"}};
+
+/* ============= FullyConnected ============= */
+namespace fullyConnected {
 
 const std::vector<ShapeRelatedParams> IS2D {
     {{{59, 1}, false}, {{1, 120}, false}},
@@ -157,26 +161,45 @@ const std::vector<ShapeRelatedParams> IS2D {
 
 std::vector<fusingSpecificParams> fusingParamsSet2D {
         emptyFusingSpec,
-        fusingBiasFC,
+        fusingBias,
         fusingRelu,
         fusingMultiplyPerChannel,
-        fusingPReluPerTensor
+        fusingPReluPerTensor,
+        fusingFakeQuantizePerChannelRelu,
+        fusingFakeQuantizePerTensorRelu,
 };
 
-const auto fullyConnectedParams2D = ::testing::Combine(::testing::ValuesIn(IS2D),
-                                                       ::testing::ValuesIn(netPRCs),
-                                                       ::testing::Values(Precision::UNSPECIFIED),
-                                                       ::testing::Values(Precision::UNSPECIFIED),
-                                                       ::testing::Values(Layout::ANY),
-                                                       ::testing::Values(helpers::InputLayerType::CONSTANT),
-                                                       ::testing::Values(CommonTestUtils::DEVICE_CPU),
-                                                       ::testing::ValuesIn(additionalConfig));
+std::vector<fusingSpecificParams> fusingParamsSet2DBF16 {
+        emptyFusingSpec,
+        fusingBias,
+        fusingRelu,
+        fusingPReluPerTensor,
+};
 
-const auto testParams2D = ::testing::Combine(fullyConnectedParams2D,
+const auto testParams2D = ::testing::Combine(::testing::Combine(::testing::ValuesIn(IS2D),
+                                                                ::testing::Values(Precision::FP32),
+                                                                ::testing::Values(Precision::UNSPECIFIED),
+                                                                ::testing::Values(Precision::UNSPECIFIED),
+                                                                ::testing::Values(Layout::ANY),
+                                                                ::testing::Values(helpers::InputLayerType::CONSTANT),
+                                                                ::testing::Values(CommonTestUtils::DEVICE_CPU),
+                                                                ::testing::Values(emptyAdditionalConfig)),
                                              ::testing::Values(MatMulNodeType::FullyConnected),
                                              ::testing::ValuesIn(fusingParamsSet2D));
 
+const auto testParams2DBF16 = ::testing::Combine(::testing::Combine(::testing::ValuesIn(IS2D),
+                                                                    ::testing::ValuesIn(netPRCs),
+                                                                    ::testing::Values(Precision::UNSPECIFIED),
+                                                                    ::testing::Values(Precision::UNSPECIFIED),
+                                                                    ::testing::Values(Layout::ANY),
+                                                                    ::testing::Values(helpers::InputLayerType::CONSTANT),
+                                                                    ::testing::Values(CommonTestUtils::DEVICE_CPU),
+                                                                    ::testing::ValuesIn(additionalConfig)),
+                                                 ::testing::Values(MatMulNodeType::FullyConnected),
+                                                 ::testing::ValuesIn(fusingParamsSet2DBF16));
+
 INSTANTIATE_TEST_SUITE_P(smoke_FC_2D, MatMulLayerCPUTest, testParams2D, MatMulLayerCPUTest::getTestCaseName);
+INSTANTIATE_TEST_SUITE_P(smoke_FC_2D_BF16, MatMulLayerCPUTest, testParams2DBF16, MatMulLayerCPUTest::getTestCaseName);
 
 const std::vector<ShapeRelatedParams> IS3D = {
     {{{1, 32, 120}, false}, {{120, 5}, false}},
@@ -192,10 +215,28 @@ const std::vector<ShapeRelatedParams> IS3D = {
 
 std::vector<fusingSpecificParams> fusingParamsSet3D {
         emptyFusingSpec,
-        fusingBiasFC
+        fusingBias,
+        fusingMultiplyPerChannel,
+        fusingFakeQuantizePerChannel,
+        fusingFakeQuantizePerTensorRelu,
+};
+
+std::vector<fusingSpecificParams> fusingParamsSet3DBF16 {
+        emptyFusingSpec,
+        fusingBias,
+        fusingMultiplyPerChannel,
 };
 
 const auto fullyConnectedParams3D = ::testing::Combine(::testing::ValuesIn(IS3D),
+                                                       ::testing::Values(Precision::FP32),
+                                                       ::testing::Values(Precision::UNSPECIFIED),
+                                                       ::testing::Values(Precision::UNSPECIFIED),
+                                                       ::testing::Values(Layout::ANY),
+                                                       ::testing::Values(helpers::InputLayerType::CONSTANT),
+                                                       ::testing::Values(CommonTestUtils::DEVICE_CPU),
+                                                       ::testing::Values(emptyAdditionalConfig));
+
+const auto fullyConnectedParams3DBF16 = ::testing::Combine(::testing::ValuesIn(IS3D),
                                                        ::testing::ValuesIn(netPRCs),
                                                        ::testing::Values(Precision::UNSPECIFIED),
                                                        ::testing::Values(Precision::UNSPECIFIED),
@@ -208,7 +249,12 @@ const auto testParams3D = ::testing::Combine(fullyConnectedParams3D,
                                              ::testing::Values(MatMulNodeType::FullyConnected),
                                              ::testing::ValuesIn(fusingParamsSet3D));
 
+const auto testParams3DBF16 = ::testing::Combine(fullyConnectedParams3DBF16,
+                                             ::testing::Values(MatMulNodeType::FullyConnected),
+                                             ::testing::ValuesIn(fusingParamsSet3DBF16));
+
 INSTANTIATE_TEST_SUITE_P(smoke_FC_3D, MatMulLayerCPUTest, testParams3D, MatMulLayerCPUTest::getTestCaseName);
+INSTANTIATE_TEST_SUITE_P(smoke_FC_3D_BF16, MatMulLayerCPUTest, testParams3DBF16, MatMulLayerCPUTest::getTestCaseName);
 
 }; // namespace fullyConnected
 
@@ -241,6 +287,15 @@ const std::vector<ShapeRelatedParams> IS = {
 std::vector<fusingSpecificParams> matmulFusingParams {
         emptyFusingSpec,
         fusingElu,
+        fusingPReluPerTensor,
+        fusingMultiplyPerChannel,
+        fusingAddPerTensor,
+        fusingBias,
+        fusingFakeQuantizePerChannel,
+        /* @todo FQ unfolds into FQ + Convert + Substract + Multiply after LPT,
+         * so Relu cannot be fused in this case. Should be analysed */
+        // fusingFakeQuantizePerChannelRelu,
+        fusingFakeQuantizePerTensorRelu,
 };
 
 const auto matMulParams = ::testing::Combine(::testing::ValuesIn(IS),

@@ -37,11 +37,17 @@ public:
 
     static bool isSupportedOperation(const std::shared_ptr<const ngraph::Node>& op, std::string& errorMessage) noexcept;
 
+    size_t getChannelAxis() const override {
+        return getOutputShapeAtPort(0).getRank() - 1;
+    }
+
 protected:
-    AttrPtr initPrimitiveAttr() const override;
+    AttrPtr initPrimitiveAttr() override;
 
 private:
-    void setPostOps(mkldnn::primitive_attr &attr, bool initWeights) const;
+    bool withBiases;
+
+    void setPostOps(mkldnn::primitive_attr &attr, bool initWeights);
 
     std::string errorPrefix;
 

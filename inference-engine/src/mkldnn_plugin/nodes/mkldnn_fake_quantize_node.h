@@ -121,10 +121,18 @@ public:
     InferenceEngine::Precision getInputPrecision() const { return inputPrecision; }
     InferenceEngine::Precision getOutputPrecision() const { return outputPrecision; }
 
-    void appendPostOps(mkldnn::post_ops& ops, const VectorDims &postOpDims = {}, int align = -1, bool initAsBinary = false,
-                       bool initBinaryMemory = false) override;
+    void appendPostOps(mkldnn::post_ops& ops, int align = -1) override;
+    void appendBinPostOps(mkldnn::post_ops& ops, const std::vector<size_t>& binaryShape, std::vector<MKLDNNMemoryPtr>& binaryPostOpsMem) override;
 
     static bool isSupportedOperation(const std::shared_ptr<const ngraph::Node>& op, std::string& errorMessage) noexcept;
+
+    enum Policy {
+        PerChannel, // all FQ operations are per channel
+        PerTensor,  // all FQ operations are per tensor
+        Mixed,      // some per channel, some per tensor
+    };
+
+    Policy getPolicy() const { return policy; }
 
     MKLDNNMemoryPtr cropLowMemory;
     MKLDNNMemoryPtr cropHighMemory;
@@ -149,6 +157,7 @@ private:
 
     void init() override;
     std::vector<LayoutType> getDataFormats() const;
+    void initializePostOpData(const size_t bufferAlignment);
     void executeReference();
     void executeBinarization(const std::unique_ptr<jit_uni_quantize_kernel> &pKernel) const;
     void executeQuantization(const std::unique_ptr<jit_uni_quantize_kernel> &pKernel) const;
@@ -195,6 +204,8 @@ private:
     InferenceEngine::Precision outputPrecision = InferenceEngine::Precision::FP32;
 
     std::string errorPrefix;
+
+    Policy policy;
 };
 
 }  // namespace MKLDNNPlugin
