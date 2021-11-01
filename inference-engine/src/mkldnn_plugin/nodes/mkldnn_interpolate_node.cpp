@@ -2397,7 +2397,7 @@ void MKLDNNInterpolateNode::setPostOps(mkldnn::primitive_attr &attr, bool initWe
         if (eltwiseNode) {
             constexpr int align = 16;
             // TODO [DS]: change to shape from memory
-            eltwiseNode->appendPostOps(ops, getOutputShapeAtPort(0).getStaticDims(), align);
+            eltwiseNode->appendPostOps(ops, align);
             continue;
         }
 

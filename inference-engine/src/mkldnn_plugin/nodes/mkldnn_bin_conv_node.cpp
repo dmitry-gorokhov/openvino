@@ -1133,14 +1133,14 @@ void MKLDNNBinaryConvolutionNode::setPostOps(mkldnn::primitive_attr &attr) {
             } else {
                 // TODO [DS]: change to shape from memory
                 constexpr int align = 16;
-                eltwiseNode->appendPostOps(ops, getOutputShapeAtPort(0).getStaticDims(), align);
+                eltwiseNode->appendPostOps(ops, align);
             }
             continue;
         }
 
         auto* fakeQuantizeNode = dynamic_cast<MKLDNNFakeQuantizeNode *>(node.get());
         if (fakeQuantizeNode) {
-            fakeQuantizeNode->appendPostOps(ops, getOutputShapeAtPort(0).getStaticDims());
+            fakeQuantizeNode->appendPostOps(ops);
             continue;
         }
 
