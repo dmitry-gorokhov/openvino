@@ -1625,23 +1625,8 @@ void MKLDNNGraphOptimizer::FusePerformedAsScaleShiftAndFakeQuantize(MKLDNNGraph 
 
         std::tie(scalesBuffer, shiftsBuffer) = parentEltwise->getScalesAndShifts(parent->getParentEdgesAtPort(1 - getConstPort(parent))[0]->getParent());
 
-        const auto &outputShape = child->getOutputShapeAtPort(0);
-        VectorDims outputDims = outputShape.getDims();
-        const size_t channelPos = outputDims.size() > 1 ? 1 : 0;
-        if (outputShape.isDynamic()) {
-            if (outputDims[channelPos] == Shape::UNDEFINED_DIM) {
-                if (scalesBuffer.size() > 1) {
-                    outputDims[channelPos] = scalesBuffer.size();
-                } else if (shiftsBuffer.size() > 1) {
-                    outputDims[channelPos] = shiftsBuffer.size();
-                } else {
-                    return false;
-                }
-            }
-        }
-
-        scalesBuffer = makeAlignedBuffer(outputDims[channelPos], scalesBuffer, 1);
-        shiftsBuffer = makeAlignedBuffer(outputDims[channelPos], shiftsBuffer, 1);
+        scalesBuffer = makeAlignedBuffer(scalesBuffer.size(), scalesBuffer, 1);
+        shiftsBuffer = makeAlignedBuffer(shiftsBuffer.size(), shiftsBuffer, 1);
 
         for (int i = 0; i < scalesBuffer.size(); i++)
             if (scalesBuffer[i] == 0.f)
