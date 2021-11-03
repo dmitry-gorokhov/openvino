@@ -74,13 +74,13 @@ void MKLDNNGraphOptimizer::ApplyCommonGraphOptimizations(MKLDNNGraph &graph) {
     FuseBroadcastAndEltwise(graph);
     graph.RemoveDroppedNodes();
 
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseClampAndFakeQuantize");
-    FuseClampAndFakeQuantize(graph);
-    graph.RemoveDroppedNodes();
-
-    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FusePerformedAsScaleShiftAndFakeQuantize");
-    FusePerformedAsScaleShiftAndFakeQuantize(graph);
-    graph.RemoveDroppedNodes();
+//    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseClampAndFakeQuantize");
+//    FuseClampAndFakeQuantize(graph);
+//    graph.RemoveDroppedNodes();
+//
+//    OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FusePerformedAsScaleShiftAndFakeQuantize");
+//    FusePerformedAsScaleShiftAndFakeQuantize(graph);
+//    graph.RemoveDroppedNodes();
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndZeroPoints");
     FuseConvolutionAndZeroPoints(graph);
