@@ -221,7 +221,7 @@ struct jit_uni_quantization_kernel : public jit_uni_quantize_kernel, public jit_
     };
 
     void generate() override {
-        do_dequantization = jqp_.op_type == FQCommon;
+        do_dequantization = jqp_.op_type == FQCommon || jqp_.op_type == FQRequantization;
         do_rounding = do_dequantization || jqp_.dst_prc == Precision::FP32;
 
         this->preamble();
@@ -1757,7 +1757,7 @@ void MKLDNNFakeQuantizeNode::appendBinPostOps(mkldnn::post_ops& ops, const std::
         }
     };
 
-    mkldnn::algorithm alg = getAlgorithm() == FQCommon ? mkldnn::algorithm::quantization_quantize_dequantize :
+    mkldnn::algorithm alg = getAlgorithm() == FQCommon || getAlgorithm() == FQRequantization ? mkldnn::algorithm::quantization_quantize_dequantize :
                             mkldnn::algorithm::quantization_quantize;
 
     appendBinary(mkldnn::algorithm::binary_min, cropHighSize, cropHighMemory, &cropHighData.shifts_[0]);
