@@ -423,6 +423,7 @@ std::string algToString(const Algorithm alg) {
     CASE(FQCommon);
     CASE(FQQuantization);
     CASE(FQBinarization);
+    CASE(FQRequantization);
     CASE(ROIPoolingMax);
     CASE(ROIPoolingBilinear);
     CASE(ROIAlignMax);

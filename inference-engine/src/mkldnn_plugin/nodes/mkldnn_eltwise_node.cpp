@@ -542,7 +542,8 @@ private:
 
                 eltwise_post_op_idx++;
             } else {
-                bool do_dequantization = eltwiseNode.getFusedWith()[i]->getAlgorithm() == FQCommon;
+                bool do_dequantization = eltwiseNode.getFusedWith()[i]->getAlgorithm() == FQCommon ||
+                                         eltwiseNode.getFusedWith()[i]->getAlgorithm() == FQRequantization;
                 bool do_rounding = do_dequantization || jep_.dst_prc == Precision::FP32 || i != eltwiseNode.getFusedWith().size() - 1;
                 int s_idx = vmm_dst.getIdx();
 
