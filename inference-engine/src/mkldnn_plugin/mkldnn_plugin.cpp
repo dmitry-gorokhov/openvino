@@ -102,6 +102,11 @@
 #include "ngraph_transformations/move_eltwise_up_data_movement.hpp"
 #include "transformations/smart_reshape/smart_reshape.hpp"
 
+#include "ngraph_transformations/op/fully_connected.hpp"
+#include <ngraph/rt_info.hpp>
+#include <ngraph/pattern/op/wrap_type.hpp>
+#include <random>
+
 #if !defined(__arm__) && !defined(_M_ARM) && !defined(__aarch64__) && !defined(_M_ARM64)
 # ifdef _WIN32
 #  include <intrin.h>
@@ -545,6 +550,26 @@ Engine::LoadExeNetworkImpl(const InferenceEngine::CNNNetwork &network, const std
         }
     }
     ConvertToCPUSpecificOpset(nGraphFunc);
+
+    std::mt19937 gen(11111);
+    std::uniform_real_distribution<float> dist(0, 1);
+    const float sparseRate = 0.9f;
+
+    for (auto& op : nGraphFunc->get_ordered_ops()) {
+        if (auto fc = std::dynamic_pointer_cast<const FullyConnectedNode>(op)) {
+            if (auto weights = std::dynamic_pointer_cast<ngraph::opset1::Constant>(op->get_input_node_shared_ptr(1))) {
+                auto sparseWeightsData = weights->get_vector<int8_t>();
+                for (signed char &value : sparseWeightsData) {
+                    value = dist(gen) <= sparseRate ? static_cast<int8_t>(0) : static_cast<int8_t>(1);
+                }
+
+                auto sparseWeights = std::make_shared<ngraph::opset1::Constant>(weights->get_element_type(), weights->get_shape(), sparseWeightsData);
+                sparseWeights->set_friendly_name(weights->get_friendly_name());
+                ngraph::copy_runtime_info(weights, sparseWeights);
+                ngraph::replace_node(weights, sparseWeights);
+            }
+        }
+    }
 
     // update the props after the perf mode translated to configs
     // TODO: Clarify the behavior of SetConfig method. Skip eng_config or not?

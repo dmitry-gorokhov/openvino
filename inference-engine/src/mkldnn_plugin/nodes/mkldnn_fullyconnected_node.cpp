@@ -53,6 +53,17 @@ MKLDNNFullyConnectedNode::MKLDNNFullyConnectedNode(const std::shared_ptr<ngraph:
         errorPrefix = "FullyConnected node with name '" + getName() + "'";
 
         withBiases = op->get_input_size() == 3;
+
+        if (auto weights = std::dynamic_pointer_cast<const ngraph::opset1::Constant>(op->get_input_node_shared_ptr(WEIGHTS_ID))) {
+            size_t zerosCounts = 0;
+            auto weightsData = weights->get_vector<int8_t>();
+            for (int i = 0; i < weightsData.size(); i++) {
+                if (weightsData[i] == 0) {
+                    zerosCounts++;
+                }
+            }
+            std::cout << getName() << " | sparse rate = " << static_cast<float>(zerosCounts) * 100 / static_cast<float>(weightsData.size()) << "%" << std::endl;
+        }
     } else {
         IE_THROW(NotImplemented) << errorMessage;
     }
@@ -297,6 +308,9 @@ void MKLDNNFullyConnectedNode::createDescriptorInternal(const mkldnn::memory::de
     }
 
     mkldnn::memory::desc wgh_candidate(MKLDNNExtensionUtils::convertToDnnlDims(weightsDims), wdt, mkldnn::memory::format_tag::any);
+
+    wgh_candidate.data.extra.flags = dnnl_memory_extra_flag_ip_compression;
+    wgh_candidate.data.extra.compensation_mask = 13;
 
     if (withBiases) {
         mkldnn::memory::desc bias_candidate(MKLDNNExtensionUtils::convertToDnnlDims(inputShapes[BIAS_ID].getStaticDims()), bdt,
