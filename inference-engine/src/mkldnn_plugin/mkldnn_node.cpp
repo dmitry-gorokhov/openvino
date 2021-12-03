@@ -1385,9 +1385,9 @@ void MKLDNNNode::updateLastInputDims() {
 bool MKLDNNNode::canFuseSimpleOperation(const MKLDNNNodePtr& node) const {
     if (node->getType() == FakeQuantize) {
         bool ret = node->getAlgorithm() != FQBinarization;
-        for (size_t i = 1; i < node->getParentEdges().size(); i++) {
-            ret &= node->getParentEdgesAtPort(i)[0]->getParent()->getChildEdges().size() == 1;
-        }
+//        for (size_t i = 1; i < node->getParentEdges().size(); i++) {
+//            ret &= node->getParentEdgesAtPort(i)[0]->getParent()->getChildEdges().size() == 1;
+//        }
         return ret;
     } else if (node->getType() == Eltwise) {
         return one_of(node->getAlgorithm(),
