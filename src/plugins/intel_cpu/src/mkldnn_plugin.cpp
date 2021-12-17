@@ -84,6 +84,7 @@
 #include <transformations/utils/utils.hpp>
 #include <snippets/pass/collapse_subgraph.hpp>
 #include "ngraph_transformations/snippets_mark_skipped.hpp"
+#include <openvino/pass/make_internally_dynamic.hpp>
 
 #include <ngraph/opsets/opset1.hpp>
 #include <ngraph/opsets/opset2.hpp>
@@ -175,6 +176,8 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
     };
 
     static const auto precisions = get_convert_precisions();
+
+    manager.register_pass<ov::pass::MakeInternallyDynamic>();
 
     manager.register_pass<ngraph::pass::CommonOptimizations>();
     manager.register_pass<ngraph::pass::WrapInterpolateIntoTransposes>();
