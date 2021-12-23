@@ -122,9 +122,6 @@ bool MKLDNNConvolutionNode::canBeExecutedInInt8() const {
 }
 
 InferenceEngine::Precision MKLDNNConvolutionNode::fusedEltwisePrecision(const MKLDNNNodePtr& fusingNode) const {
-    if (sumPrc != Precision::UNSPECIFIED)
-        return sumPrc;
-
     InferenceEngine::Precision eltwisePrecision;
 
     int fusingPort = fusingNode->getFusingPort();
@@ -481,17 +478,21 @@ void MKLDNNConvolutionNode::initSupportedPrimitiveDescriptors() {
 
     // attr[0] - depthwise, quantize
     // attr[1] - binary
-    mkldnn::primitive_attr attrs[1];
-    setPostOps(attrs[0], MemoryDescUtils::makeDummyShape(getOutputShapeAtPort(0)).getStaticDims());
+//    mkldnn::primitive_attr attrs[1];
+//    setPostOps(attrs[0], MemoryDescUtils::makeDummyShape(getOutputShapeAtPort(0)).getStaticDims());
+
+    pAttr = std::make_shared<mkldnn::primitive_attr>();
+    setPostOps(*pAttr, MemoryDescUtils::makeDummyShape(getOutputShapeAtPort(0)).getStaticDims());
+    addZeroPoints(*pAttr);
 
     bool containJitImpl = false;
 
     for (auto& desc : descs) {
         if (containJitImpl && isPossibleToSkipInitConfig(desc))
             continue;
-        for (auto &attr : attrs) {
-            addZeroPoints(attr);
-            auto itpd = desc.createPrimitiveDescriptorIterator(getEngine(), attr);
+//        for (auto &attr : attrs) {
+//            addZeroPoints(*pAttr);
+            auto itpd = desc.createPrimitiveDescriptorIterator(getEngine(), *pAttr);
             while (static_cast<bool>(itpd)) {
                 NodeConfig config;
                 config.dynBatchSupport = true;
@@ -556,7 +557,7 @@ void MKLDNNConvolutionNode::initSupportedPrimitiveDescriptors() {
                 if (!itpd.next_impl())
                     break;
             }
-        }
+//        }
     }
 }
 
@@ -691,9 +692,10 @@ void MKLDNNConvolutionNode::initDescriptor(const NodeConfig& config) {
         createDescriptor({config.inConfs[0].desc}, {config.outConfs[0].desc});
     }
     // attr[0] - depthwise, quantize
-    // attr[1] - binary
-    mkldnn::primitive_attr attrs[1];
-    setPostOps(attrs[0], MemoryDescUtils::makeDummyShape(getOutputShapeAtPort(0)).getStaticDims());
+    // attr[1] - binary.
+//    pAttr = std::make_shared<mkldnn::primitive_attr>();
+//    setPostOps(*pAttr, MemoryDescUtils::makeDummyShape(getOutputShapeAtPort(0)).getStaticDims());
+//    addZeroPoints(*pAttr);
 
     auto rightConfig = selectedPD->getConfig();
     size_t selected_count = 0;
@@ -704,9 +706,8 @@ void MKLDNNConvolutionNode::initDescriptor(const NodeConfig& config) {
         auto& desc = descs[i];
         if (containJitImpl && isPossibleToSkipInitConfig(desc))
             continue;
-        for (auto &attr : attrs) {
-            addZeroPoints(attr);
-            auto itpd = desc.createPrimitiveDescriptorIterator(getEngine(), attr);
+//        for (auto &attr : attrs) {
+            auto itpd = desc.createPrimitiveDescriptorIterator(getEngine(), *pAttr);
             while (static_cast<bool>(itpd)) {
                 NodeConfig cfg;
                 cfg.dynBatchSupport = true;
@@ -768,7 +769,7 @@ void MKLDNNConvolutionNode::initDescriptor(const NodeConfig& config) {
                 if (!itpd.next_impl())
                     break;
             }
-        }
+//        }
     }
     selectedPD->setConfig(rightConfig);
 }
@@ -1028,31 +1029,32 @@ void MKLDNNConvolutionNode::prepareParams() {
         biasDesc = biasMemPtr->GetDescWithType<DnnlMemoryDesc>()->getDnnlDesc();
     }
 
-    auto initPrimitiveAttr = [&]() {
-        mkldnn::primitive_attr attr;
-        addZeroPoints(attr);
-        setPostOps(attr, outMemoryDesc->getShape().getStaticDims(), true);
-
-        return std::make_shared<mkldnn::primitive_attr>(std::move(attr));
-    };
-
-    AttrPtr pAttrLocal;
-
-    if (isDynamicNode()) {
-        if (!pAttr) {
-            pAttr = initPrimitiveAttr();
-        }
-        pAttrLocal = pAttr;
-    } else {
-        pAttrLocal = initPrimitiveAttr();
-    }
+//    auto initPrimitiveAttr = [&]() {
+//        mkldnn::primitive_attr attr;
+//        addZeroPoints(attr);
+//        setPostOps(attr, outMemoryDesc->getShape().getStaticDims(), true);
+//
+//        return std::make_shared<mkldnn::primitive_attr>(std::move(attr));
+//    };
+//
+//    AttrPtr pAttrLocal;
+//
+//    if (isDynamicNode()) {
+//        if (!pAttr) {
+//            pAttr = initPrimitiveAttr();
+//        }
+//        pAttrLocal = pAttr;
+//    } else {
+//        pAttrLocal = initPrimitiveAttr();
+//    }
 
     std::shared_ptr<MKLDNNDescriptor> desc = createMkldnnConvDesc(inMemoryDesc->getDnnlDesc(),
                                                                   weightMemoryDesc->getDnnlDesc(),
                                                                   outMemoryDesc->getDnnlDesc(),
                                                                   biasDesc);
 
-    auto itpd = desc->createPrimitiveDescriptorIterator(getEngine(), *pAttrLocal);
+
+    auto itpd = desc->createPrimitiveDescriptorIterator(getEngine(), *pAttr);
 
     convolution_forward::primitive_desc prim_desc;
 
@@ -1062,6 +1064,7 @@ void MKLDNNConvolutionNode::prepareParams() {
 
         if (impl_type == selected_pd->getImplementationType()) {
             prim_desc = convolution_forward::primitive_desc(itpd.get());
+
             execPtr = std::make_shared<ConvolutionExecutor>(prim_desc,
                                                             srcMemPtr->GetPrimitive().get_desc(),
                                                             wghMemPtr->GetPrimitive().get_desc(),
@@ -1082,7 +1085,7 @@ void MKLDNNConvolutionNode::prepareParams() {
                                                                                         memory::format_tag::any);
 
             std::shared_ptr<MKLDNNDescriptor> reorderConvDesc = createMkldnnConvDesc(inDesc, wghDesc, outDesc, biasDesc);
-            auto reordItpd = reorderConvDesc->createPrimitiveDescriptorIterator(getEngine(), *pAttrLocal);
+            auto reordItpd = reorderConvDesc->createPrimitiveDescriptorIterator(getEngine(), *pAttr);
             if (static_cast<bool>(reordItpd)) {
                 auto prim_desc = convolution_forward::primitive_desc(reordItpd.get());
                 execPtr = std::make_shared<ConvolutionExecutor>(prim_desc, srcMemPtr->GetPrimitive().get_desc(),
@@ -1102,7 +1105,7 @@ void MKLDNNConvolutionNode::prepareParams() {
             primArgs[DNNL_ARG_BIAS] = biasMemPtr->GetPrimitive();
         }
 
-        MKLDNNNode::appendPostOpArgs(*pAttrLocal, primArgs, binaryPostOpsArgs);
+        MKLDNNNode::appendPostOpArgs(*pAttr, primArgs, binaryPostOpsArgs);
     } else {
         IE_THROW() << "Primitive descriptor was not found for node " << getName() << ".";
     }
@@ -1130,7 +1133,7 @@ MKLDNNConvolutionNode::ConvolutionExecutor::ConvolutionExecutor(const mkldnn::co
 
 void MKLDNNConvolutionNode::execute(mkldnn::stream strm) {
     if (!execPtr) {
-        IE_THROW() << "Can't execute Convolution node with name: " << getName() << ", because executor is not compiled";
+        IE_THROW() << "Can't execute Convolution no0de with name: " << getName() << ", because executor is not compiled";
     }
     execPtr->exec(primArgs, strm);
 }
