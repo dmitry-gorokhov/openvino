@@ -309,8 +309,8 @@ void MKLDNNFullyConnectedNode::createDescriptorInternal(const mkldnn::memory::de
 
     mkldnn::memory::desc wgh_candidate(MKLDNNExtensionUtils::convertToDnnlDims(weightsDims), wdt, mkldnn::memory::format_tag::any);
 
-    wgh_candidate.data.extra.flags = dnnl_memory_extra_flag_ip_compression;
-    wgh_candidate.data.extra.compensation_mask = 13;
+//    wgh_candidate.data.extra.flags = dnnl_memory_extra_flag_ip_compression;
+//    wgh_candidate.data.extra.compensation_mask = 13;
 
     if (withBiases) {
         mkldnn::memory::desc bias_candidate(MKLDNNExtensionUtils::convertToDnnlDims(inputShapes[BIAS_ID].getStaticDims()), bdt,
