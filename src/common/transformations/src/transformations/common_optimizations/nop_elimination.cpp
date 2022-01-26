@@ -552,7 +552,7 @@ ngraph::pass::NopElimination::NopElimination(bool use_shape_for_elimination) {
     add_matcher<EliminateConcat>();
     add_matcher<EliminateSplit>();
     add_matcher<EliminateTranspose>();
-    add_matcher<EliminateEltwise>();
+//    add_matcher<EliminateEltwise>();
 
     // shape-dependent transformations
     if (use_shape_for_elimination) {
