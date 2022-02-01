@@ -431,6 +431,20 @@ int main(int argc, char* argv[]) {
                 throw std::logic_error("no inputs info is provided");
             }
 
+            for (auto& item : model->inputs()) {
+                if (item.get_tensor().get_names().empty()) {
+                    item.get_tensor_ptr()->set_names(
+                        std::unordered_set<std::string>{item.get_node_shared_ptr()->get_name()});
+                }
+            }
+
+            for (auto& item : model->outputs()) {
+                if (item.get_tensor().get_names().empty()) {
+                    item.get_tensor_ptr()->set_names(
+                        std::unordered_set<std::string>{item.get_node_shared_ptr()->get_name()});
+                }
+            }
+
             // ----------------- 5. Resizing network to match image sizes and given
             // batch ----------------------------------
             next_step();
