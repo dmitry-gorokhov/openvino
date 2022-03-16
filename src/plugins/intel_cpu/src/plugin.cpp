@@ -815,7 +815,7 @@ Engine::LoadExeNetworkImpl(const InferenceEngine::CNNNetwork &network, const std
 
     ApplyPerformanceHints(config, nGraphFunc);
 
-    ConvertToCPUSpecificOpset(nGraphFunc);
+    ConvertToCPUSpecificOpset(nGraphFunc, enableDynamicBatch);
 
     // update the props after the perf mode translated to configs
     // TODO: Clarify the behavior of SetConfig method. Skip eng_config or not?
@@ -1050,7 +1050,7 @@ QueryNetworkResult Engine::QueryNetwork(const CNNNetwork& network, const std::ma
     auto supported = GetSupportedNodes(model,
     [&](std::shared_ptr<ov::Model>& model) {
             TransformationUpToCPUSpecificOpSet(model, enableLPT, conf.enforceBF16, enableSnippets, isLegacyAPI());
-            ConvertToCPUSpecificOpset(model);
+            ConvertToCPUSpecificOpset(model, conf.enableDynamicBatch);
         },
     [&](const std::shared_ptr<ngraph::Node>& op) {
         std::unique_ptr<Node> ptr;

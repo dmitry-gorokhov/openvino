@@ -26,7 +26,8 @@
 namespace ov {
 namespace intel_cpu {
 
-inline void ConvertToCPUSpecificOpset(std::shared_ptr<ngraph::Function> &nGraphFunc) {
+inline void ConvertToCPUSpecificOpset(std::shared_ptr<ngraph::Function> &nGraphFunc,
+    const bool enableDynamicBatch) {
     RUN_ON_FUNCTION_SCOPE(ConvertToCPUSpecificOpset);
     ngraph::pass::Manager manager;
     manager.register_pass<ConvertMatMulToFC>();
@@ -44,7 +45,8 @@ inline void ConvertToCPUSpecificOpset(std::shared_ptr<ngraph::Function> &nGraphF
     manager.register_pass<ngraph::pass::ReshapeSequenceFusion>();
     manager.register_pass<ngraph::pass::ConstantFolding>();
     manager.register_pass<ngraph::pass::ConvertPrecision>(precisions_array {{ ngraph::element::i64, ngraph::element::i32 }});
-    manager.register_pass<MixedAffinity>();
+    if (!enableDynamicBatch)
+        manager.register_pass<MixedAffinity>();
 
     manager.run_passes(nGraphFunc);
 }
