@@ -585,8 +585,8 @@ void MatMul::executeDynamicImpl(dnnl::stream strm) {
 const std::vector<impl_desc_type>& MatMul::getPrimitivesPriority() {
     std::vector<impl_desc_type> priorities = {
             impl_desc_type::unknown,
-            impl_desc_type::brgemm_avx512_amx,
-            impl_desc_type::brgemm_avx512,
+            // impl_desc_type::brgemm_avx512_amx,
+            // impl_desc_type::brgemm_avx512,
             impl_desc_type::gemm_blas,
             impl_desc_type::gemm_avx512,
             impl_desc_type::gemm_avx2,
