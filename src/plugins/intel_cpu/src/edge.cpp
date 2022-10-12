@@ -197,7 +197,7 @@ bool Edge::enforceReorder() {
     return false;
 }
 
-static inline bool isPhycicalMemCompatible(const MemoryDesc& lhsMemDesc, const MemoryDesc& rhsMemDesc) {
+bool isPhysicalMemCompatible(const MemoryDesc& lhsMemDesc, const MemoryDesc& rhsMemDesc) {
     if (!lhsMemDesc.isDefined() || !rhsMemDesc.isDefined() ||
         !(lhsMemDesc.getType() & MemoryDescType::Blocked) || !(rhsMemDesc.getType() & MemoryDescType::Blocked) ||
         (lhsMemDesc.getType() == DnnlBlocked && !lhsMemDesc.as<const DnnlMemoryDesc>()->hasEmptyExtraData()) ||
@@ -283,7 +283,7 @@ Edge::ReorderStatus Edge::needReorder() {
     // Check whether the child node may accept the parent produced tensor
     if (!outPortDesc->isCompatible(*inputPortDesc)) {
         // Performance optimization which exploit the fact that some tensors do not need actual data reordering to be read using different descriptors
-        if (isPhycicalMemCompatible(*inputPortDesc->getMemDesc(), *outPortDesc->getMemDesc()) && !getParent()->isConstant()) {
+        if (isPhysicalMemCompatible(*inputPortDesc->getMemDesc(), *outPortDesc->getMemDesc()) && !getParent()->isConstant()) {
             optimized = true;
         } else {
             return ReorderStatus::Regular;
