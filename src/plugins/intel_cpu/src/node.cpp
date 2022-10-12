@@ -1305,7 +1305,8 @@ bool Node::canBePerformedAsScaleShift(const Node *parentNode) const {
             if (i == fusingPort)
                 continue;
             auto& weightShape = getInputShapeAtPort(i).getDims();
-            if (getParentEdgesAtPort(i)[0]->getParent()->getChildEdges().size() != 1 ||
+                // TODO: is it always legal to skip this check?
+            if (// getParentEdgesAtPort(i)[0]->getParent()->getChildEdges().size() != 1 ||
                 !isPerTensorOrPerChannelBroadcastable(dataShape, weightShape, channelAxis, true))
                 return false;
         }
