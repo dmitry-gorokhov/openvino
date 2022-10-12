@@ -81,6 +81,35 @@ void Edge::collectConsumers(std::vector<NodePtr>& result) const {
     }
 }
 
+static bool childCanChangeMem(const Edge& edge) {
+    int outNumber = edge.getOutputNum();
+    auto child = edge.getChild();
+    if (auto childSPD = edge.getChild()->getSelectedPrimitiveDescriptor()) {
+        if (childSPD->getConfig().outConfs.empty())
+            return true;
+
+        for (int port = 0; port < childSPD->getConfig().outConfs.size(); port++) {
+            const auto& conf = childSPD->getConfig().outConfs[port];
+            if (conf.inPlace() == outNumber && outNumber >= 0) {
+                // WA. In general even if some operation is has inplace config it doesn't mean it will change underlaying memory during inference
+                // Example: Split operation which in some cases just creates view on the same tensor
+                // In which cases we have to recursivly check childs of such layers
+                // TODO: how to understand in general way if node can change memory during inference? Extend Node API?
+                if (child->getType() == Type::Split) {
+                    for (const auto& childEdge : child->getChildEdgesAtPort(port)) {
+                        if (childCanChangeMem(*childEdge)) {
+                            return true;
+                        }
+                    }
+                } else {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 bool Edge::enforceReorder() {
     bool canBeInPlaceConflicts = false;
     auto parentNode = getParent();
@@ -90,20 +119,7 @@ bool Edge::enforceReorder() {
     if (!parentSPD || !childSPD)
         IE_THROW() << "Cannot make a decision about reorder. Primitive descriptors weren't selected.";
 
-    auto childCanChangeMem = [](const Edge& edge) {
-        bool result = false;
-        int outNumber = edge.getOutputNum();
-        if (auto childSPD = edge.getChild()->getSelectedPrimitiveDescriptor()) {
-            result = childSPD->getConfig().outConfs.empty();
-            for (const auto& conf : childSPD->getConfig().outConfs) {
-                if (conf.inPlace() == outNumber && outNumber >= 0)
-                    result = true;
-            }
-        }
-        return result;
-    };
-
-    const auto& detectInPlaceChildrenNum = [&childCanChangeMem](const std::vector<EdgePtr>& edges) -> size_t {
+    const auto& detectInPlaceChildrenNum = [](const std::vector<EdgePtr>& edges) -> size_t {
         size_t count = 0;
         for (const auto& edge : edges) {
             if (childCanChangeMem(*edge)) {
@@ -134,6 +150,7 @@ bool Edge::enforceReorder() {
                 }
                 if (canBeInPlaceConflicts) break;
             }
+        // TODO: detectInPlaceChildrenNum(portChildEdges) > 1 - is it always safe condition? Looks like depends on exec order
         } else if (in_place && detectInPlaceChildrenNum(portChildEdges) > 1) {
             canBeInPlaceConflicts = true;
         }
