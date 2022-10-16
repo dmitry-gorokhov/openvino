@@ -190,23 +190,26 @@ void GraphOptimizer::FuseConvolutionMatMulAndBias(Graph &graph) {
             return false;
 
         const auto biasNode = childNode->getParentEdgesAtPort(1)[0]->getParent();
-        if (biasNode->getType() != Type::Input || !biasNode->isConstant() || biasNode->getChildEdges().size() != 1)
+        if (biasNode->getType() != Type::Input || !biasNode->isConstant())
+            // TODO: is it always valid to skip this check?
+            // || biasNode->getChildEdges().size() != 1)
             return false;
 
         const auto parentOutDims = parentNode->getOutputShapeAtPort(0).getDims();
-        const auto biasDims = getNormalizedDimsBySize(biasNode->getOutputShapeAtPort(0).getDims(),
-                                                parentOutDims.size());
-        // TODO [NM]: Legacy ConvBias fusion transformation supports both per-tensor (via explicit broadcasing) and per-channel cases.
-        // Most of the real models contain per-channel bias, so we need to reavaluate the need to support per-tensor variant.
-        if (parentOutDims.size() != biasDims.size() || biasDims.size() < 2)
+        const auto biasDims = biasNode->getOutputShapeAtPort(0).getRank() == 1
+                                ? biasNode->getOutputShapeAtPort(0).getDims()
+                                : getNormalizedDimsBySize(biasNode->getOutputShapeAtPort(0).getDims(), parentOutDims.size());
+
+        if (!one_of(biasDims.size(), 1, parentOutDims.size()))
             return false;
 
         const auto channelAxis = parentNode->getFusingAxis();
-        if (!dimsEqualStrong(biasDims[channelAxis], parentOutDims[channelAxis]))
+        const auto biasAxis = biasDims.size() == 1 ? 0 : channelAxis;
+        if (!dimsEqualStrong(biasDims[biasAxis], parentOutDims[channelAxis]))
             return false;
 
         for (int i = 0; i < biasDims.size(); i++) {
-            if (biasDims[i] != 1 && i != channelAxis)
+            if (biasDims[i] != 1 && i != biasAxis)
                 return false;
         }
 
