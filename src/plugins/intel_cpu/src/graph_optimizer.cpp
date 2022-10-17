@@ -1317,10 +1317,16 @@ void GraphOptimizer::FuseConvolutionSumAndConvolutionSumActivation(Graph &graph)
         // be overwritten. Should verify that all other consumer already read it and
         // we can spoil input data.
         // TODO: rewrite once we add "Inplace" reporting mechanism
-        for (auto & edge : peerNode->getChildEdges()) {
+        auto peerOutPort = 0;
+        for (auto& edge : peerNode->getChildEdges()) {
+            if (edge.lock()->getChild() == sum)
+                peerOutPort = edge.lock()->getInputNum();
+        }
+
+        for (auto & edge : peerNode->getChildEdgesAtPort(peerOutPort)) {
             if (!fuse_allowed)
                 break;
-            fuse_allowed &= is_data_dependency(edge.lock()->getChild(), sum);
+            fuse_allowed &= is_data_dependency(edge->getChild(), sum);
         }
         if (!fuse_allowed) continue;
 
