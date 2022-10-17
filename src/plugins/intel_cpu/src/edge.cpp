@@ -95,7 +95,7 @@ static bool childCanChangeMem(const Edge& edge) {
                 // Example: Split operation which in some cases just creates view on the same tensor
                 // In which cases we have to recursivly check childs of such layers
                 // TODO: how to understand in general way if node can change memory during inference? Extend Node API?
-                if (child->getType() == Type::Split) {
+                if (one_of(child->getType(), Type::Split, Type::Concatenation)) {
                     for (const auto& childEdge : child->getChildEdgesAtPort(port)) {
                         if (childCanChangeMem(*childEdge)) {
                             return true;
@@ -156,23 +156,33 @@ bool Edge::enforceReorder() {
         }
     }
 
-    if (!canBeInPlaceConflicts && in_place && !parentNode->getChildEdges().empty()) {
-        for (auto& p_edge_peer : portChildEdges) {
-            if (p_edge_peer.get() == this)
+    // TODO: looks like can be unified with condition above
+    if (!canBeInPlaceConflicts && childCanChangeMem(*this) && !parentNode->getChildEdges().empty()) {
+        auto execIndex = childNode->getExecIndex();
+        for (auto pEdgePeer : portChildEdges) {
+            if (pEdgePeer.get() == this)
                 continue;
-            if (p_edge_peer->getChild()->getType() != Type::Reorder && p_edge_peer->inPlace(LOOK_DOWN)) {
-                canBeInPlaceConflicts = true;
-                break;
+            std::vector<NodePtr> vecConsumers;
+            pEdgePeer->collectConsumers(vecConsumers);
+
+            for (auto node : vecConsumers) {
+                if (node->getExecIndex() >= execIndex) {
+                    canBeInPlaceConflicts = true;
+                    break;
+                }
             }
+            if (canBeInPlaceConflicts) break;
         }
     }
 
     if (in_place) {
         int outNumber = getOutputNum();
-        if (inNumber >= 0 && inNumber < parentSPD->getConfig().outConfs.size() &&
-            parentSPD->getConfig().outConfs[inNumber].inPlace() >= 0 && outNumber >= 0 &&
-            outNumber < childSPD->getConfig().inConfs.size() && childSPD->getConfig().inConfs[outNumber].inPlace() >= 0)
-            canBeInPlaceConflicts = true;
+        if (inNumber >= 0 && inNumber < parentSPD->getConfig().outConfs.size() && parentSPD->getConfig().outConfs[inNumber].inPlace() >= 0 &&
+            outNumber >= 0 && outNumber < childSPD->getConfig().inConfs.size() && childSPD->getConfig().inConfs[outNumber].inPlace() >= 0) {
+            if (childCanChangeMem(*this)) {
+                canBeInPlaceConflicts = true;
+            }
+        }
     }
 
     if (canBeInPlaceConflicts) {
@@ -219,9 +229,10 @@ bool isPhysicalMemCompatible(const MemoryDesc& lhsMemDesc, const MemoryDesc& rhs
         return false;
 
     // tensor padding check
-    if (lhsBlockMemDesc->getOffsetPadding() != rhsBlockMemDesc->getOffsetPadding()) {
-        return false;
-    }
+    // TODO: why tensors with different offset paddings are not physically compatible. Looks like this condition can be removed
+    // if (lhsBlockMemDesc->getOffsetPadding() != rhsBlockMemDesc->getOffsetPadding()) {
+    //     return false;
+    // }
 
     // stride check
     const auto lhsBlockDims = lhsBlockMemDesc->getBlockDims();
