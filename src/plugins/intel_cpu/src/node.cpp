@@ -1555,9 +1555,10 @@ void Node::updateLastInputDims() {
 bool Node::canFuseSimpleOperation(const NodePtr& node) const {
     if (node->getType() == Type::FakeQuantize) {
         bool ret = node->getAlgorithm() != Algorithm::FQBinarization;
-        for (size_t i = 1; i < node->getParentEdges().size(); i++) {
-            ret &= node->getParentEdgesAtPort(i)[0]->getParent()->getChildEdges().size() == 1;
-        }
+        // TODO: is it always valid to skip this condition?
+        // for (size_t i = 1; i < node->getParentEdges().size(); i++) {
+        //     ret &= node->getParentEdgesAtPort(i)[0]->getParent()->getChildEdges().size() == 1;
+        // }
         return ret;
     } else if (node->getType() == Type::Eltwise) {
         return one_of(node->getAlgorithm(),
