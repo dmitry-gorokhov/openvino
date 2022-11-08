@@ -27,15 +27,15 @@ public:
     }
 
     bool isExecutable() const override;
+    bool needShapeInfer() const override;
+    std::vector<VectorDims> shapeInfer() const override;
 
 protected:
+    bool needPrepareParams() const override;
     void prepareParams() override;
     void executeDynamicImpl(dnnl::stream strm) override;
 
 private:
-    void addHiddenDims(const size_t nSrcDims, int ellipsisPos1);
-    void orderParametersByLayouts(const MemoryPtr& srcMemPtr);
-
     struct StridedSliceAttributes {
         std::vector<int> begin;
         std::vector<int> end;
@@ -55,17 +55,49 @@ private:
 
         bool equalDims = false;
         size_t dataSize = 1lu;
+        int ellipsisMaskCounter = 0;
+        bool isStridedSliceOp = true;
+        int ellipsisPos1 = -1;
     } attrs;
 
-    struct StridedSliceExecutor {
-        StridedSliceExecutor(const StridedSliceAttributes& attrs, const VectorDims& srcBlockedDims, const VectorDims& dstBlockedDims);
-        void exec(const uint8_t* srcData, uint8_t* dstData);
-        ~StridedSliceExecutor() = default;
+    class StridedSliceExecutor {
+    public:
+        StridedSliceExecutor(const StridedSliceAttributes& attrs,
+                             const std::vector<MemoryCPtr>& srcMemory,
+                             const MemoryCPtr& dstMemory,
+                             const std::string& errorPrefix) : errorPrefix(errorPrefix) {}
+        virtual void exec(const std::vector<MemoryCPtr>& srcMemory, const MemoryPtr& dstMemory) = 0;
+        virtual ~StridedSliceExecutor() = default;
+
+    protected:
+        const std::string errorPrefix;
+    };
+
+    class StridedSlice2DPlanarExecutor : public StridedSliceExecutor {
+    public:
+        StridedSlice2DPlanarExecutor(const StridedSliceAttributes& attrs,
+                                     const std::vector<MemoryCPtr>& srcMemory,
+                                     const MemoryCPtr& dstMemory,
+                                     const std::string& errorPrefix);
+        void exec(const std::vector<MemoryCPtr>& srcMemory, const MemoryPtr& dstMemory) override;
+
+    private:
+        const StridedSliceAttributes attrs;
+    };
+
+    class StridedSliceCommonExecutor : public StridedSliceExecutor {
+    public:
+        StridedSliceCommonExecutor(const StridedSliceAttributes& attrs,
+                                   const std::vector<MemoryCPtr>& srcMemory,
+                                   const MemoryCPtr& dstMemory,
+                                   const std::string& errorPrefix);
+        void exec(const std::vector<MemoryCPtr>& srcMemory, const MemoryPtr& dstMemory) override;
 
     private:
         struct StridedSliceParams {
             StridedSliceAttributes attrs;
             VectorDims srcBlockedDims;
+            VectorDims srcOrder;
             VectorDims dstBlockedDims;
             VectorDims srcStrides;
             VectorDims dstStrides;
@@ -73,11 +105,15 @@ private:
             bool isOptimized = false;
         };
 
-        void dimsNormalization(StridedSliceParams& params);
-        void dimsGluing(StridedSliceParams& params, const size_t realNDims);
-        void indicesCalculation(const StridedSliceParams& params);
-        void indicesCalculationForOptimized(const StridedSliceParams& params);
+        void paramsInitialization(const StridedSliceAttributes& attrs, const std::vector<MemoryCPtr>& srcMemory, const MemoryCPtr& dstMemory);
+        void dimsNormalization();
+        void dimsGluing();
+        void indicesCalculation();
+        void indicesCalculationForOptimized();
+        void addHiddenDims(const size_t nSrcDims);
+        void orderParametersByLayouts(const BlockedMemoryDescCPtr& blockedMemoryDesc);
 
+        StridedSliceParams params;
         VectorDims srcIndices;
         VectorDims dstIndices;
         size_t nThreads = 0lu;
@@ -88,7 +124,6 @@ private:
     using executorPtr = std::shared_ptr<StridedSliceExecutor>;
     executorPtr execPtr = nullptr;
 
-    bool isStridedSliceOp = true;
     bool isStrideSpecified = false;
     bool isAxesSpecified = false;
 
@@ -99,6 +134,8 @@ private:
     static constexpr size_t AXES_ID = 4;
 
     bool isConstantInput[AXES_ID + 1] = {false};
+
+    std::string errorPrefix;
 };
 
 }   // namespace node

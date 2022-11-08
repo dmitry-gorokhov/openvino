@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<net name="TensorFlow_Frontend_IR" version="11">
+	<layers>
+		<layer id="0" name="x" type="Input">
+			<data shape="1" element_type="f32" execOrder="1" execTimeMcs="1" originalLayersNames="x" outputLayouts="a" outputPrecisions="FP32" primitiveType="unknown_FP32" runtimePrecision="FP32" />
+			<output>
+				<port id="0" precision="FP32">
+					<dim>1</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="1" name="Constant_1692" type="Const">
+			<data execOrder="0" execTimeMcs="not_executed" originalLayersNames="Constant_1692" outputLayouts="a" outputPrecisions="I32" primitiveType="unknown_I32" runtimePrecision="I32" />
+			<output>
+				<port id="0" precision="I32">
+					<dim>1</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="2" name="Unique.0" type="Reshape">
+			<data execOrder="2" execTimeMcs="not_executed" originalLayersNames="Unique.0" outputLayouts="a" outputPrecisions="FP32" primitiveType="unknown_FP32" runtimePrecision="FP32" />
+			<input>
+				<port id="0" precision="FP32">
+					<dim>1</dim>
+				</port>
+				<port id="1" precision="I32">
+					<dim>1</dim>
+				</port>
+			</input>
+			<output>
+				<port id="2" precision="FP32">
+					<dim>1</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="3" name="unique_elements" type="Output">
+			<data execOrder="3" execTimeMcs="not_executed" originalLayersNames="unique_elements" outputLayouts="undef" outputPrecisions="FP32" primitiveType="unknown_FP32" runtimePrecision="FP32" />
+			<input>
+				<port id="0" precision="FP32">
+					<dim>1</dim>
+				</port>
+			</input>
+		</layer>
+	</layers>
+	<edges>
+		<edge from-layer="0" from-port="0" to-layer="2" to-port="0" />
+		<edge from-layer="1" from-port="0" to-layer="2" to-port="1" />
+		<edge from-layer="2" from-port="2" to-layer="3" to-port="0" />
+	</edges>
+	<rt_info />
+</net>
