@@ -139,6 +139,18 @@ void Unique::execute(dnnl::stream strm) {
 }
 
 void Unique::executeDynamicImpl(dnnl::stream strm) {
+    const auto& srcDataDims = getParentEdgeAt(IN_DATA)->getMemoryPtr()->getStaticDims();
+    VectorDims dstDataDims;
+    Dim uniqLen = 1;
+    if (flattened) {
+        uniqLen = std::accumulate(srcDataDims.begin(), srcDataDims.end(), 1, std::multiplies<Dim>());
+        dstDataDims = { uniqLen };
+    } else {
+        uniqLen = srcDataDims[axis];
+        dstDataDims = srcDataDims;
+    }
+    redefineOutputMemory({ dstDataDims, {uniqLen}, {uniqLen}, {uniqLen}});
+
     execute(strm);
 }
 
