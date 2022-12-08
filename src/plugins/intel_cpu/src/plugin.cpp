@@ -344,7 +344,7 @@ static void TransformationUpToCPUSpecificOpSet(std::shared_ptr<ngraph::Function>
     manager.register_pass<ov::pass::ConvertNMS3ToNMS9>();
     manager.register_pass<ov::pass::ConvertNMS4ToNMS9>();
     manager.register_pass<ov::pass::ConvertNMS5ToNMS9>();
-    manager.register_pass<ov::pass::ConvertNMS9ToNMSIEInternal>();
+    // manager.register_pass<ov::pass::ConvertNMS9ToNMSIEInternal>();
     manager.register_pass<ov::pass::ConvertMulticlassNmsToMulticlassNmsIE>();
     manager.register_pass<ov::pass::ConvertMatrixNmsToMatrixNmsIE>();
     manager.register_pass<ov::pass::TransposeMatMul>();

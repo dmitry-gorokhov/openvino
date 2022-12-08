@@ -463,10 +463,10 @@ void CNNNetworkNGraphImpl::reshape(const std::map<std::string, ngraph::PartialSh
                 ::ngraph::pass::Manager manager;
                 // resolves dynamism by replacing dynamic operation with static version
                 using namespace ngraph::pass;
-                REGISTER_PASS(manager, ConvertNMS5ToLegacyMatcher, false)
+                // REGISTER_PASS(manager, ConvertNMS5ToLegacyMatcher, false)
                 REGISTER_PASS(manager, ConvertMulticlassNmsToMulticlassNmsIE, false)
                 REGISTER_PASS(manager, ConvertMatrixNmsToMatrixNmsIE, false)
-                REGISTER_PASS(manager, ConvertNMS9ToNMSIEInternal)
+                // REGISTER_PASS(manager, ConvertNMS9ToNMSIEInternal)
                 REGISTER_PASS(manager, ConvertGP9ToGPIEInternal)
                 using namespace ov::pass;
                 REGISTER_PASS(manager, MarkDequantizationSubgraph)
