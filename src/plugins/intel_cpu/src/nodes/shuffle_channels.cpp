@@ -158,6 +158,7 @@ void ShuffleChannels::prepareParams() {
 
     auto cache = context->getParamsCache();
     auto result = cache->getOrCreate(attrs, builder);
+    VERBOSE_HELPER_NODE_PREPARE_PARAMS(result.second);
     if (!result.first) {
         OPENVINO_THROW("ShuffleChannelsExecutor was not found for node ", getName(), ".");
     }

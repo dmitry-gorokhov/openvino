@@ -41,6 +41,11 @@ public:
         OPENVINO_THROW_NOT_IMPLEMENTED("Not Implemented  CompiledModel::set_property is not supported by CPU plugin!");
     };
 
+ #ifdef CPU_DEBUG_CAPS
+    friend void perfDump(const CompiledModel& execNet);
+    ~CompiledModel() { perfDump(*this); }
+ #endif
+
 private:
     std::shared_ptr<ov::ISyncInferRequest> create_sync_infer_request() const override;
     friend class SyncInferRequest;

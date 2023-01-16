@@ -300,10 +300,12 @@ void Reorder::createReorderPrimitive(const dnnl::memory::desc& srcDesc,
     }
 
     auto result = getReorderPrim(context->getParamsCache(), getEngine(), src_desc, dst_desc);
-    if (!result) {
+    prim = result.first;
+    if (!prim) {
         OPENVINO_THROW("Cannot create reorder primitive: unsupported reorder case");
     }
-    prim = result;
+
+    VERBOSE_HELPER_NODE_PREPARE_PARAMS(result.second);
 
     selectedPD->setImplementationType(
         parse_impl_name(DnnlExtensionUtils::query_impl_info_str(prim.get_primitive_desc())));
@@ -476,7 +478,9 @@ void Reorder::reorderData(const IMemory &input, const IMemory &output, MultiCach
         }
 
         // try directly reorder
-        reorder = getReorderPrim(cache, engine, srcMemoryDesc, dstMemoryDesc);
+        auto result = getReorderPrim(cache, engine, srcMemoryDesc, dstMemoryDesc);
+        reorder = result.first;
+
         if (!reorder) {
             // try precision conversion then do the reorder
             if (output.getDataType() != input.getDataType() && Convert::isSupportedDesc(input.getDesc()) &&
@@ -494,7 +498,8 @@ void Reorder::reorderData(const IMemory &input, const IMemory &output, MultiCach
                 Memory tmpMem(engine, std::move(tmpDesc), tmpBuff.data());
 
                 srcMemory = tmpMem.getPrimitive();
-                reorder = getReorderPrim(cache, dstMemory.get_engine(), srcMemory.get_desc(), dstMemory.get_desc());
+                auto result = getReorderPrim(cache, dstMemory.get_engine(), srcMemory.get_desc(), dstMemory.get_desc());
+                reorder = result.first;
             }
             if (!reorder) {
                 OPENVINO_THROW("No reorder available for the following tensor descriptors: ",
