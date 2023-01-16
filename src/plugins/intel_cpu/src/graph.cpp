@@ -1124,8 +1124,10 @@ void Graph::PullOutputData(std::unordered_map<std::size_t, ov::SoPtr<ITensor>>& 
 }
 
 void Graph::InferStatic(SyncInferRequest* request, int numaId) {
+    CPU_DEBUG_CAP_ENABLE(const PerfKey perfKey = perfGetKey(*this));
+
     for (const auto& node : m_executableGraphNodes) {
-        ExecuteNodeWithCatch(node, request, numaId);
+        ExecuteNodeWithCatch(node, request, numaId, perfKey);
     }
 }
 
@@ -1333,9 +1335,9 @@ public:
 /* group all the profiling macros into a single one
  * to avoid cluttering a core logic */
 #define VERBOSE_PERF_DUMP_ITT_DEBUG_LOG(ittScope, node, config) \
-    VERBOSE(node, config.debugCaps.verbose); \
-    PERF(node, config.collectPerfCounters); \
-    DUMP(node, config.debugCaps, infer_count); \
+    VERBOSE(node, config.debugCaps.verbose, infer_count); \
+    PERF(node, config.collectPerfCounters, perfKey); \
+    DUMP(node, config.debugCaps, nestingLevel, infer_count); \
     OV_ITT_SCOPED_TASK(ittScope, node->profiling.execute); \
     DEBUG_LOG(*node);
 
@@ -1346,7 +1348,7 @@ inline void Graph::ExecuteNode(const NodePtr& node, SyncInferRequest* request, i
     node->execute(m_stream, numaId);
 }
 
-inline void Graph::ExecuteNodeWithCatch(const NodePtr& node, SyncInferRequest* request, int numaId) const {
+inline void Graph::ExecuteNodeWithCatch(const NodePtr& node, SyncInferRequest* request, int numaId, const PerfKey perfKey) const {
     VERBOSE_PERF_DUMP_ITT_DEBUG_LOG(itt::domains::intel_cpu, node, getConfig());
 
     try {
@@ -1358,6 +1360,8 @@ inline void Graph::ExecuteNodeWithCatch(const NodePtr& node, SyncInferRequest* r
 
 template<typename UpdateStrategy>
 void Graph::InferDynamic(SyncInferRequest* request, int numaId, UpdateStrategy&& update) {
+    CPU_DEBUG_CAP_ENABLE(const PerfKey perfKey = perfGetKey(*this));
+
     size_t inferCounter = 0;
     for (auto stopIndx : m_executableSyncNodesInds) {
         update(stopIndx);
@@ -1365,7 +1369,7 @@ void Graph::InferDynamic(SyncInferRequest* request, int numaId, UpdateStrategy&&
         for (; inferCounter < stopIndx; ++inferCounter) {
             auto& node = m_executableGraphNodes[inferCounter];
 
-            ExecuteNodeWithCatch(node, request, numaId);
+            ExecuteNodeWithCatch(node, request, numaId, perfKey);
         }
     }
 }
@@ -1399,7 +1403,7 @@ void Graph::Infer(SyncInferRequest* request) {
         OPENVINO_ASSERT(IsReady(), "Wrong state of the ov::intel_cpu::Graph. Topology is not ready: ", static_cast<int>(status));
     }
 
-    if (infer_count != -1) infer_count++;
+    CPU_DEBUG_CAP_ENABLE(infer_count++);
 }
 
 void Graph::SortTopologically() {

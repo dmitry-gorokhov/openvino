@@ -34,6 +34,9 @@ public:
             m_sub_compiled_models.clear();
             m_sub_memory_manager->_memorys_table.clear();
         }
+#ifdef CPU_DEBUG_CAPS
+        perfDump(*this);
+#endif
     }
 
     std::shared_ptr<ov::IAsyncInferRequest> create_infer_request() const override;
@@ -48,6 +51,10 @@ public:
         OPENVINO_THROW_NOT_IMPLEMENTED("It's not possible to set property of an already compiled model. "
                                        "Set property to Core::compile_model during compilation");
     };
+
+ #ifdef CPU_DEBUG_CAPS
+    friend void perfDump(const CompiledModel& execNet);
+ #endif
 
 private:
     std::shared_ptr<ov::ISyncInferRequest> create_sync_infer_request() const override;
