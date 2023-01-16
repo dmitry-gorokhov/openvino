@@ -6,6 +6,7 @@
 #ifdef CPU_DEBUG_CAPS
 
 #include <node.h>
+#include "utils/verbose_node_helper.h"
 
 #include <string>
 #include <cstdlib>
@@ -16,21 +17,22 @@ namespace intel_cpu {
 
 class Verbose {
 public:
-    Verbose(const NodePtr& _node, const std::string& _lvl)
+    Verbose(const NodePtr& _node, const std::string& _lvl, const int inferCount)
         : node(_node),
           lvl(atoi(_lvl.c_str()) % 10),
           /* 1,  2,  3,  etc -> no color. 11, 22, 33, etc -> colorize */
           colorUp(atoi(_lvl.c_str()) / 10) {
         if (!shouldBePrinted())
             return;
-        printInfo();
+        node->_verboseStorage.cleanup();
+        printInfo(inferCount);
     }
 
     ~Verbose() {
         if (!shouldBePrinted())
             return;
 
-        printDuration();
+        printLastInfo();
         flush();
     }
 
@@ -41,9 +43,19 @@ private:
     std::stringstream stream;
 
     bool shouldBePrinted() const;
-    void printInfo();
-    void printDuration();
+    void printInfo(const int inferCount);
+    void printLastInfo();
     void flush() const;
+
+    enum Color {
+        RED,
+        GREEN,
+        YELLOW,
+        BLUE,
+        PURPLE,
+        CYAN
+    };
+    std::string colorize(const Color color, const std::string& str) const;
 };
 
 // use heap allocation instead of stack to align with PERF macro (to have proper destruction order)

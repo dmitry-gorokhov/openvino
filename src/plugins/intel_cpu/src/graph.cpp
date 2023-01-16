@@ -533,7 +533,13 @@ void Graph::CreatePrimitivesAndExecConstants() const {
             continue;
         }
 
+<<<<<<< HEAD
         if (m_context->getWeightsCache()) {
+=======
+        VERBOSE(node, getConfig().debugCaps.verbose, infer_count);
+
+        if (context->getWeightsCache()) {
+>>>>>>> [CPU] [DEBUG CAPS] Extend performance info for dynamic shapes
             auto sharedOutputs = acquireSharedOutputs(node);
 
             if (std::get<0>(sharedOutputs) || std::get<1>(sharedOutputs)) {
@@ -1091,7 +1097,10 @@ VecMemoryDescs Graph::getOutputMemoryDescriptors() const {
 }
 
 void Graph::InferStatic(SyncInferRequest* request, int numaId) {
+    CPU_DEBUG_CAP_ENABLE(const PerfKey perfKey = perfGetKey(*this));
     for (const auto& node : m_executableGraphNodes) {
+        VERBOSE(node, getConfig().debugCaps.verbose, infer_count);
+        PERF(node, getConfig().collectPerfCounters, perfKey);
         ExecuteNodeWithCatch(node, request, numaId);
     }
 }
@@ -1325,12 +1334,16 @@ inline void Graph::ExecuteNodeWithCatch(const NodePtr& node, SyncInferRequest* r
 
 template<typename UpdateStrategy>
 void Graph::InferDynamic(SyncInferRequest* request, int numaId, UpdateStrategy&& update) {
+    CPU_DEBUG_CAP_ENABLE(const PerfKey perfKey = perfGetKey(*this));
     size_t inferCounter = 0;
     for (auto stopIndx : m_executableSyncNodesInds) {
         update(stopIndx);
 
         for (; inferCounter < stopIndx; ++inferCounter) {
             auto& node = m_executableGraphNodes[inferCounter];
+
+            VERBOSE(node, getConfig().debugCaps.verbose, infer_count);
+            PERF(node, getConfig().collectPerfCounters, perfKey);
 
             ExecuteNodeWithCatch(node, request, numaId);
         }
@@ -1374,7 +1387,7 @@ void Graph::Infer(SyncInferRequest* request) {
         OPENVINO_ASSERT(IsReady(), "Wrong state of the ov::intel_cpu::Graph. Topology is not ready: ", static_cast<int>(status));
     }
 
-    if (infer_count != -1) infer_count++;
+    CPU_DEBUG_CAP_ENABLE(infer_count++);
 }
 
 void Graph::SortTopologically() {
