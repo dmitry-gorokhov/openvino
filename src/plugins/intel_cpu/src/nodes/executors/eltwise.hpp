@@ -93,7 +93,9 @@ using EltwiseExecutorCPtr = std::shared_ptr<const EltwiseExecutor>;
 class EltwiseExecutorBuilder {
 public:
     ~EltwiseExecutorBuilder() = default;
-    virtual bool isSupported(const EltwiseAttrs& eltwiseAttrs, const std::vector<MemoryDescPtr>& srcDescs, const std::vector<MemoryDescPtr>& dstDescs) const = 0;
+    virtual bool isSupported(const EltwiseAttrs& eltwiseAttrs,
+                             const std::vector<MemoryDescPtr>& srcDescs,
+                             const std::vector<MemoryDescPtr>& dstDescs) const = 0;
     virtual EltwiseExecutorPtr makeExecutor(const ExecutorContext::CPtr context) const = 0;
 };
 

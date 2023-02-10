@@ -80,7 +80,7 @@ private:
 
 class ExecutorFactory {
 public:
-    ExecutorFactory(const ExecutorContext::CPtr context) : context(context) {};
+    ExecutorFactory(const ExecutorContext::CPtr context) : context(context) {}
     virtual ~ExecutorFactory() = default;
 
     ExecutorContext::CPtr context;

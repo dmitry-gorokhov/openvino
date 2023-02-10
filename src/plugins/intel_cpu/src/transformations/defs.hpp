@@ -7,6 +7,15 @@
 namespace ov {
 namespace intel_cpu {
 
+#define OV_CPU_REGISTER_PASS_COMMON(MANAGER, PASS) \
+    MANAGER.register_pass<PASS>();
+
+#define OV_CPU_DISABLE_PASS_COMMON(MANAGER, PASS) \
+    MANAGER.get_pass_config()->disable<PASS>();
+
+#define OV_CPU_SET_CALLBACK_COMMON(MANAGER, CALLBACK, ...) \
+    MANAGER.get_pass_config()->set_callback<__VA_ARGS__>(CALLBACK);
+
 #if defined(OPENVINO_ARCH_X86_64)
 
 #define OV_CPU_REGISTER_PASS_X64(MANAGER, PASS) \
