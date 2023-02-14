@@ -156,6 +156,7 @@ Pooling::Pooling(const std::shared_ptr<ov::Node>& op, const GraphContext::CPtr c
         isMaxPool8 = true;
         algorithm = Algorithm::PoolingMax;
         exclude_pad = false;
+        poolingAttrs.exclude_pad = (maxPoolOp_v8->get_auto_pad() != ov::op::PadType::EXPLICIT);
 
         get_attributes(dilation, maxPoolOp_v8->get_dilations());
         get_attributes(stride, maxPoolOp_v8->get_strides());
@@ -167,6 +168,7 @@ Pooling::Pooling(const std::shared_ptr<ov::Node>& op, const GraphContext::CPtr c
     } else if (auto maxPoolOp_v1 = ov::as_type_ptr<const ov::op::v1::MaxPool>(op)) {
         algorithm = Algorithm::PoolingMax;
         exclude_pad = false;
+        poolingAttrs.exclude_pad = (maxPoolOp_v1->get_auto_pad() != ov::op::PadType::EXPLICIT);
 
         get_attributes(stride, maxPoolOp_v1->get_strides());
         get_attributes(kernel, maxPoolOp_v1->get_kernel());
@@ -178,6 +180,7 @@ Pooling::Pooling(const std::shared_ptr<ov::Node>& op, const GraphContext::CPtr c
     } else if (auto avgPoolOp = ov::as_type_ptr<const ov::op::v1::AvgPool>(op)) {
         algorithm = Algorithm::PoolingAvg;
         exclude_pad = avgPoolOp->get_exclude_pad();
+        poolingAttrs.exclude_pad = exclude_pad;
 
         get_attributes(stride, avgPoolOp->get_strides());
         get_attributes(kernel, avgPoolOp->get_kernel());
@@ -187,6 +190,13 @@ Pooling::Pooling(const std::shared_ptr<ov::Node>& op, const GraphContext::CPtr c
 
         auto_pad = (avgPoolOp->get_auto_pad() == ov::op::PadType::SAME_LOWER || avgPoolOp->get_auto_pad() == ov::op::PadType::SAME_UPPER);
     }
+//poolingAttrs.exclude_pad = exclude_pad;
+    poolingAttrs.algorithm = algorithm;
+    poolingAttrs.stride = stride;
+    poolingAttrs.kernel = kernel;
+    poolingAttrs.data_pad_begin = data_pad_begin;
+    poolingAttrs.data_pad_end = data_pad_end;
+    poolingAttrs.dilation = dilation;
 }
 
 std::vector<memory::format_tag> Pooling::getAvailableFormatsForDims(const Shape &dims) const {
@@ -318,6 +328,7 @@ void Pooling::prepareParams() {
     if (selected_pd == nullptr)
         IE_THROW()  << "Pooling node with name '" << getName() << "' did not set preferable primitive descriptor";
 
+#if defined(OPENVINO_ARCH_X86_64)
     AttrPtr attr;
     if (isDynamicNode()) {
         if (!pAttr) {
@@ -394,6 +405,37 @@ void Pooling::prepareParams() {
     primArgs = {{DNNL_ARG_SRC, src}, {DNNL_ARG_DST, dst}, {DNNL_ARG_SCRATCHPAD, scratchpadMem->GetPrimitive()}};
 
     Node::appendPostOpArgs(*attr, primArgs, postOpsArgs);
+#else
+    auto& dstMemPtr = getChildEdgeAt(0)->getMemoryPtr();
+    auto& srcMemPtr = getParentEdgeAt(0)->getMemoryPtr();
+    if (!dstMemPtr || !dstMemPtr->isAllocated())
+        IE_THROW() << "Destination memory didn't allocate.";
+    if (!srcMemPtr || !srcMemPtr->isAllocated())
+        IE_THROW() << "Input memory didn't allocate.";
+
+    std::vector<MemoryDescPtr> srcMemoryDescs;
+    for (int i = 0; i < getOriginalInputsNumber(); i++) {
+        srcMemoryDescs.push_back(getParentEdgeAt(i)->getMemoryPtr()->getDescPtr());
+    }
+    std::vector<MemoryDescPtr> dstMemoryDescs;
+    for (int i = 0; i < getOriginalOutputsNumber(); i++) {
+        dstMemoryDescs.push_back(getChildEdgeAt(i)->getMemoryPtr()->getDescPtr());
+    }
+
+    dnnl::primitive_attr attr;
+    setPostOps(attr);
+
+/*poolingAttrs.exclude_pad = exclude_pad;
+    poolingAttrs.algorithm = algorithm;
+    poolingAttrs.stride = stride;
+    poolingAttrs.kernel = kernel;
+    poolingAttrs.data_pad_begin = data_pad_begin;
+    poolingAttrs.data_pad_end = data_pad_end;
+    poolingAttrs.dilation = dilation;*/
+    auto selectedPD = getSelectedPrimitiveDescriptor();
+    execPtr = selectedPD->getExecutorFactoryAs<PoolingExecutorFactory>()->makeExecutor(poolingAttrs, srcMemoryDescs, dstMemoryDescs, attr);
+    selectedPD->setImplementationType(execPtr->getImplType());
+#endif
 }
 
 void Pooling::executeDynamicImpl(dnnl::stream strm) {
@@ -511,9 +553,30 @@ void Pooling::initSupportedPrimitiveDescriptors() {
                 config.outConfs.push_back(dataConfig);
             }
 
+        #if defined(OPENVINO_ARCH_X86_64)
             impl_desc_type impl_type = parse_impl_name(itpd.impl_info_str());
-
             supportedPrimitiveDescriptors.emplace_back(config, impl_type);
+        #else
+            std::vector<MemoryDescPtr> srcMemoryDescs;
+            for (int i = 0; i < config.inConfs.size(); i++) {
+                srcMemoryDescs.push_back(config.inConfs[i].getMemDesc());
+            }
+            std::vector<MemoryDescPtr> dstMemoryDescs;
+            for (int i = 0; i < config.outConfs.size(); i++) {
+                dstMemoryDescs.push_back(config.outConfs[i].getMemDesc());
+            }
+
+/*poolingAttrs.exclude_pad = exclude_pad;
+    poolingAttrs.algorithm = algorithm;
+    poolingAttrs.stride = stride;
+    poolingAttrs.kernel = kernel;
+    poolingAttrs.data_pad_begin = data_pad_begin;
+    poolingAttrs.data_pad_end = data_pad_end;
+    poolingAttrs.dilation = dilation;*/
+            auto factory = std::make_shared<PoolingExecutorFactory>(poolingAttrs, srcMemoryDescs, dstMemoryDescs,
+                                                                std::make_shared<ExecutorContext>(context, getPrimitivesPriority()));
+            supportedPrimitiveDescriptors.emplace_back(config, impl_desc_type::ref_any, factory);
+        #endif
             if (!itpd.next_impl())
                 break;
         }

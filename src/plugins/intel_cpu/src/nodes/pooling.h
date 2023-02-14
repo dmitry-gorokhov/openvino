@@ -10,6 +10,8 @@
 #include <memory>
 #include <vector>
 
+#include "executors/pooling_list.hpp"
+
 namespace ov {
 namespace intel_cpu {
 namespace node {
@@ -39,6 +41,10 @@ protected:
 
 private:
     void setPostOps(dnnl::primitive_attr &attr);
+
+    PoolingAttrs poolingAttrs;
+
+    std::shared_ptr<PoolingExecutor> execPtr = nullptr;
 
     void initEffectiveAttributes(const Shape &inDims, const Shape &outDims);
     dnnl::algorithm getPoolingAlgorithm() const;
