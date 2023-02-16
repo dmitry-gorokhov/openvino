@@ -17,6 +17,9 @@ struct EltwiseAttrs {
     float beta;
     float gamma;
 
+    EltwiseAttrs() : algorithm(Algorithm::Default), alpha(0), beta(0), gamma(0) {}
+    EltwiseAttrs(Algorithm algorithm, float alpha, float beta, float gamma) : algorithm(algorithm), alpha(alpha), beta(beta), gamma(gamma) {}
+
     bool operator==(const EltwiseAttrs& rhs) const {
         bool retVal = true;
         retVal = algorithm == rhs.algorithm &&
