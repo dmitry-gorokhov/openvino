@@ -149,19 +149,11 @@ ov::pass::TransposeSinkingUnaryBackwardSingleConsumer::TransposeSinkingUnaryBack
     register_matcher(m, matcher_pass_callback);
 }
 
-namespace {
-std::function<bool(Output<Node>)> consumers_more_than(size_t n) {
-    return [=](Output<Node> output) -> bool {
-        return output.get_target_inputs().size() > n;
-    };
-}
-}  // namespace
-
 ov::pass::TransposeSinkingUnaryBackwardMultiConsumers::TransposeSinkingUnaryBackwardMultiConsumers() {
     MATCHER_SCOPE(TransposeSinkingUnaryBackwardMultiConsumers);
 
     auto unary_restrictions = [](const Output<Node>& output) -> bool {
-        return consumers_more_than(1)(output) && HasSameOutputTransposeNodes(output);
+        return ov::pass::pattern::consumers_more_than(1)(output) && HasSameOutputTransposeNodes(output);
     };
 
     auto unary_label =
