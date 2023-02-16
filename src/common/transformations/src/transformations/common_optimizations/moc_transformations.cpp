@@ -68,6 +68,7 @@
 #include <transformations/common_optimizations/swish_fusion.hpp>
 #include <transformations/common_optimizations/transpose_sinking.hpp>
 #include <transformations/common_optimizations/transpose_to_reshape.hpp>
+#include <transformations/common_optimizations/nonzero_fusion.hpp>
 #include <transformations/init_node_info.hpp>
 #include <transformations/low_precision/mark_dequantization_subgraph.hpp>
 #include <transformations/op_conversions/batch_norm_decomposition.hpp>
@@ -200,6 +201,7 @@ bool ov::pass::MOCTransformations::run_on_model(const std::shared_ptr<ngraph::Fu
     ADD_MATCHER(common_fusions, PReluFusion)
     ADD_MATCHER(common_fusions, DepthToSpaceFusion)
     ADD_MATCHER(common_fusions, ShuffleChannelsFusion, !m_use_shapes)
+    ADD_MATCHER(common_fusions, NonZeroFusion)
     common_fusions->set_name("ov::pass::CommonFusions");
 
     REGISTER_PASS(manager, BinarizeWeights)
