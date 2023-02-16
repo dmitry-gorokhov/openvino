@@ -8,7 +8,6 @@
 #include <openvino/pass/graph_rewrite.hpp>
 #include <openvino/pass/pattern/matcher.hpp>
 #include <transformations_visibility.hpp>
-#include <utility>
 
 namespace ov {
 namespace pass {
@@ -20,7 +19,7 @@ class TRANSFORMATIONS_API NonZeroFusion;
 
 /**
  * @ingroup ie_transformation_common_api
- * @brief NonZeroFusion transformation replaces sub-graphs:
+ * @brief NonZeroFusion transformation makes horizontal fusion for equal NonZero layers
  */
 class ov::pass::NonZeroFusion : public ov::pass::MatcherPass {
 public:
