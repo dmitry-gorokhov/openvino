@@ -123,13 +123,15 @@ void Gather::initSupportedPrimitiveDescriptors() {
         }
     }
 
-    if ((getInputShapeAtPort(GATHER_DATA).getRank() == getOutputShapeAtPort(0).getRank() + 1) &&
-            getInputShapeAtPort(GATHER_DATA).getElementsCount() == getOutputShapeAtPort(0).getElementsCount() &&
-            getInputShapeAtPort(GATHER_DATA).getDims()[0] == 1 &&
-            getOriginalInputPrecisionAtPort(GATHER_DATA) == getOriginalOutputPrecisionAtPort(0)) {
-        if (getParentEdgesAtPort(GATHER_DATA)[0]->getParent()->getType() != Type::Input &&
-                getParentEdgeAt(0)->getParent()->getChildEdges().size() == 1) {
-            isInplace = true;
+    if (!isDynamic) {
+        if ((getInputShapeAtPort(GATHER_DATA).getRank() == getOutputShapeAtPort(0).getRank() + 1) &&
+                getInputShapeAtPort(GATHER_DATA).getElementsCount() == getOutputShapeAtPort(0).getElementsCount() &&
+                getInputShapeAtPort(GATHER_DATA).getDims()[0] == 1 &&
+                getOriginalInputPrecisionAtPort(GATHER_DATA) == getOriginalOutputPrecisionAtPort(0)) {
+            if (getParentEdgesAtPort(GATHER_DATA)[0]->getParent()->getType() != Type::Input &&
+                    getParentEdgeAt(0)->getParent()->getChildEdges().size() == 1) {
+                isInplace = true;
+            }
         }
     }
 
