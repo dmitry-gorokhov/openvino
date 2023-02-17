@@ -3,51 +3,13 @@
 //
 
 #include "acl_pooling.hpp"
+#include "acl_utils.hpp"
+#include "arm_compute/core/utils/misc/ShapeCalculator.h"
 
 namespace ov {
 namespace intel_cpu {
 
 using namespace arm_compute;
-
-inline arm_compute::TensorShape shapeCast(const VectorDims& dims) {
-    arm_compute::TensorShape tensorShape;
-    for (std::size_t i = 0; i < dims.size(); ++i) {
-        tensorShape.set(dims.size() - i - 1, dims[i], false);
-    }
-    if (tensorShape.num_dimensions() == 0) {
-        tensorShape.set(0, 1, false);
-        tensorShape.set_num_dimensions(1);
-    }
-    return tensorShape;
-}
-
-inline arm_compute::DataType precisionToAclDataType(InferenceEngine::Precision precision) {
-    switch (precision) {
-        case InferenceEngine::Precision::I8:    return arm_compute::DataType::S8;
-        case InferenceEngine::Precision::U8:    return arm_compute::DataType::U8;
-        case InferenceEngine::Precision::I16:   return arm_compute::DataType::S16;
-        case InferenceEngine::Precision::U16:   return arm_compute::DataType::U16;
-        case InferenceEngine::Precision::I32:   return arm_compute::DataType::S32;
-        case InferenceEngine::Precision::U32:   return arm_compute::DataType::U32;
-        case InferenceEngine::Precision::FP16:  return arm_compute::DataType::F16;
-        case InferenceEngine::Precision::FP32:  return arm_compute::DataType::F32;
-        case InferenceEngine::Precision::FP64:  return arm_compute::DataType::F64;
-        case InferenceEngine::Precision::I64:   return arm_compute::DataType::S64;
-        case InferenceEngine::Precision::BF16:  return arm_compute::DataType::BFLOAT16;
-        default:                                return arm_compute::DataType::UNKNOWN;
-    }
-}
-
-inline arm_compute::DataLayout getAclDataLayoutByMemoryDesc(MemoryDescPtr desc) {
-    if (desc->hasLayoutType(LayoutType::ncsp)) {
-        if (desc->getShape().getRank() == 4) return arm_compute::DataLayout::NCHW;
-        if (desc->getShape().getRank() == 5) return arm_compute::DataLayout::NCDHW;
-    } else if (desc->hasLayoutType(LayoutType::nspc)) {
-        if (desc->getShape().getRank() == 4) return arm_compute::DataLayout::NHWC;
-        if (desc->getShape().getRank() == 5) return arm_compute::DataLayout::NDHWC;
-    }
-    return arm_compute::DataLayout::UNKNOWN;
-}
 
 AclPoolingExecutor::AclPoolingExecutor(const ExecutorContext::CPtr context) : PoolingExecutor(context) {}
 
@@ -55,9 +17,12 @@ bool AclPoolingExecutor::init(const PoolingAttrs& poolingAttrs,
                              const std::vector<MemoryDescPtr>& srcDescs,
                              const std::vector<MemoryDescPtr>& dstDescs,
                              const dnnl::primitive_attr &attr) {
-    std::cout << "AclPoolingExecutor::init" << std::endl;
     auto srcDims = srcDescs[0]->getShape().getStaticDims();
     auto dstDims = dstDescs[0]->getShape().getStaticDims();
+
+    /*if (poolingAttrs.dilation != ov::Strides{1, 1}) {
+        std::cout << "AclPoolingExecutor::init unsupported dilation!" << std::endl;
+    }*/
 
     if (srcDims.size() != 4) {
         std::cout << "AclPoolingExecutor::init only 4D input tensors are supported. Tensor rank: " << srcDims.size() << std::endl;
@@ -78,56 +43,71 @@ bool AclPoolingExecutor::init(const PoolingAttrs& poolingAttrs,
     unsigned int stride_x   = poolingAttrs.stride[1];
     unsigned int stride_y   = poolingAttrs.stride[0];
 
-    //TODO: need to fix
-    arm_compute::DimensionRoundingType round = arm_compute::DimensionRoundingType::CEIL;
+    arm_compute::DimensionRoundingType round = (poolingAttrs.rounding == op::RoundingType::CEIL) ?
+                                                arm_compute::DimensionRoundingType::CEIL : arm_compute::DimensionRoundingType::FLOOR;
 
-    pool_info.data_layout       = getAclDataLayoutByMemoryDesc(srcDescs[0]);
+    pool_info.data_layout       = arm_compute::DataLayout::NCHW;//getAclDataLayoutByMemoryDesc(srcDescs[0]);
     pool_info.pool_size         = arm_compute::Size2D(kernel_w, kernel_h);
     pool_info.pad_stride_info   = arm_compute::PadStrideInfo(stride_x, stride_y, pad_left, pad_right, pad_top, pad_bottom, round);
-    pool_info.exclude_padding = poolingAttrs.exclude_pad;
+    //pool_info.is_global_pooling = false;
 
     if (poolingAttrs.algorithm == Algorithm::PoolingMax) {
         pool_info.pool_type = arm_compute::PoolingType::MAX;
+        pool_info.exclude_padding = (poolingAttrs.pad_type != op::PadType::EXPLICIT);
     } else if (poolingAttrs.algorithm == Algorithm::PoolingAvg) {
         pool_info.pool_type = arm_compute::PoolingType::AVG;
+        pool_info.exclude_padding = poolingAttrs.exclude_pad;
     } else {
         return false;
     }
 
-    if (!arm_compute::NEPoolingLayer::validate(&srcTensorInfo, &dstTensorInfo, pool_info)) {
-        std::cout << "AclPoolingExecutor::init validate fails" << std::endl;
-        return false;
+    /*arm_compute::TensorInfo ti = arm_compute::TensorInfo(arm_compute::misc::shape_calculator::compute_pool_shape(srcTensorInfo, pool_info),
+     1, dstTensorInfo.data_type());*/
+
+    TensorInfo indTensorInfo;
+    if (dstDescs.size() > 1) {
+        std::cout << "AclPoolingExecutor::init - indices branch" << std::endl;
+        auto indDims = dstDescs[1]->getShape().getStaticDims();
+        indTensorInfo = TensorInfo(shapeCast(indDims), 1, arm_compute::DataType::U32, getAclDataLayoutByMemoryDesc(srcDescs[0]));
+        arm_compute::Status s = arm_compute::NEPoolingLayer::validate(&srcTensorInfo, &dstTensorInfo, pool_info, &indTensorInfo);
+        if (!s) {
+            std::cout << "validate failed (ind): " << s.error_description() << std::endl;
+            return false;
+        }
+    } else {
+        std::cout << "AclPoolingExecutor::init - no indices branch" << std::endl;
+        arm_compute::Status s = arm_compute::NEPoolingLayer::validate(&srcTensorInfo, &dstTensorInfo, pool_info);
+        if (!s) {
+            std::cout << "validate failed (no ind): " << s.error_description() << std::endl;
+            return false;
+        }
     }
 
     srcTensor.allocator()->init(srcTensorInfo);
     dstTensor.allocator()->init(dstTensorInfo);
 
     pooling = std::make_unique<arm_compute::NEPoolingLayer>();
-    if (/*poolingAttrs.algorithm == Algorithm::PoolingMax*/dstDescs.size() > 1) {
-auto dst1Dims = dstDescs[1]->getShape().getStaticDims();
-TensorInfo dst1TensorInfo = TensorInfo(shapeCast(dst1Dims), 1,
-    precisionToAclDataType(dstDescs[1]->getPrecision()), getAclDataLayoutByMemoryDesc(dstDescs[1]));
-        dst1Tensor.allocator()->init(dst1TensorInfo);
-        pooling->configure(&srcTensor, &dstTensor, pool_info, &dst1Tensor);
+    if (dstDescs.size() > 1) {
+        indTensor.allocator()->init(indTensorInfo);
+        pooling->configure(&srcTensor, &dstTensor, pool_info, &indTensor);
         std::cout << "INDICES!" << std::endl;
     } else {
         pooling->configure(&srcTensor, &dstTensor, pool_info);
     }
 
-    std::cout << "AclPoolingExecutor::init OK" << std::endl;
     return true;
 }
 
 void AclPoolingExecutor::exec(const std::vector<MemoryCPtr>& src, const std::vector<MemoryPtr>& dst, std::unordered_map<int, MemoryPtr> postOpsArgs) {
     srcTensor.allocator()->import_memory(src[0]->GetPtr());
     dstTensor.allocator()->import_memory(dst[0]->GetPtr());
-    if (dst.size() > 1) dst1Tensor.allocator()->import_memory(dst[1]->GetPtr());
+    if (dst.size() > 1) indTensor.allocator()->import_memory(dst[1]->GetPtr());
 
     pooling->run();
 
     srcTensor.allocator()->free();
     dstTensor.allocator()->free();
-    if (dst.size() > 1) dst1Tensor.allocator()->free();
+    if (dst.size() > 1) indTensor.allocator()->free();
 }
 
 }   // namespace intel_cpu

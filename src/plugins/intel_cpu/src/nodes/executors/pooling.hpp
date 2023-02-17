@@ -13,15 +13,15 @@ namespace intel_cpu {
 
 struct PoolingAttrs {
     bool exclude_pad;
+    op::PadType pad_type;
     Algorithm algorithm;
+
+    op::RoundingType rounding;
+
     std::vector<ptrdiff_t> stride;
     std::vector<ptrdiff_t> kernel;
-    std::vector<ptrdiff_t> dilation;
-    
-    //std::vector<ptrdiff_t> effective_pad_begin;
-    //std::vector<ptrdiff_t> effective_pad_end;
-
-    //std::vector<ptrdiff_t> effective_dilation;
+    //std::vector<ptrdiff_t> dilation;
+    ov::Strides dilation;
 
     std::vector<ptrdiff_t> data_pad_begin;
     std::vector<ptrdiff_t> data_pad_end;

@@ -33,7 +33,7 @@ private:
 
     arm_compute::Tensor srcTensor;
     arm_compute::Tensor dstTensor;
-    arm_compute::Tensor dst1Tensor;
+    arm_compute::Tensor indTensor;
     std::unique_ptr<arm_compute::NEPoolingLayer> pooling = nullptr;
 };
 
@@ -55,8 +55,11 @@ public:
               dstDescs[0]->hasLayoutType(LayoutType::ncsp)) &&
             !(srcDescs[0]->hasLayoutType(LayoutType::nspc) &&
               dstDescs[0]->hasLayoutType(LayoutType::nspc))) {
-            std::cout << "AclPoolingExecutorBuilder::isSupported - layout is not supported" << std::endl;
-              return false;
+            std::cout << "AclPoolingExecutorBuilder::isSupported - layout is not supported" <<
+            srcDescs[0]->hasLayoutType(LayoutType::ncsp) << dstDescs[0]->hasLayoutType(LayoutType::ncsp)
+            << srcDescs[0]->hasLayoutType(LayoutType::nspc) << dstDescs[0]->hasLayoutType(LayoutType::nspc) << std::endl;
+            //TODO: understand why hasLayoutType returns false in all 4 cases above 
+              //return false;
         }
 
         return true;

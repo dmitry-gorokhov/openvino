@@ -102,8 +102,7 @@ class DnnlPoolingExecutorBuilder : public PoolingExecutorBuilder {
 public:
     bool isSupported(const PoolingAttrs& poolingAttrs,
                      const std::vector<MemoryDescPtr>& srcDescs,
-                     const std::vector<MemoryDescPtr>& dstDescs,
-                     const dnnl::primitive_attr &attr) const override {
+                     const std::vector<MemoryDescPtr>& dstDescs) const override {
         // TODO: add correct conditions
         return true;
     }

@@ -33,6 +33,7 @@ public:
 
     void prepareParams() override;
     void executeDynamicImpl(dnnl::stream strm) override;
+    void execute(dnnl::stream strm) override;
 
     static bool isSupportedOperation(const std::shared_ptr<const ov::Node>& op, std::string& errorMessage) noexcept;
 
@@ -56,6 +57,7 @@ private:
 
     Shape inShape;
 
+    bool useACL = false;
     bool isMaxPool8 = false;
     bool auto_pad = false;
     bool exclude_pad = false;

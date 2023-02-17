@@ -6,6 +6,18 @@
 namespace ov {
 namespace intel_cpu {
 
+inline arm_compute::TensorShape shapeCast(const VectorDims& dims) {
+    arm_compute::TensorShape tensorShape;
+    for (std::size_t i = 0; i < dims.size(); ++i) {
+        tensorShape.set(dims.size() - i - 1, dims[i], false);
+    }
+    if (tensorShape.num_dimensions() == 0) {
+        tensorShape.set(0, 1, false);
+        tensorShape.set_num_dimensions(1);
+    }
+    return tensorShape;
+}
+
 /**
 * @brief Return ComputeLibrary DataType that corresponds to the given precision
 * @param precision precision to be converted
