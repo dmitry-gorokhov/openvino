@@ -82,16 +82,16 @@ std::vector<size_t> NonZero::getNonZeroElementsCount(const T* src, const Shape& 
         counts.push_back(count);
         break;
     }
-    case 1: {
-        size_t count = 0;
-        for (size_t i = 0; i < inSize; i++) {
-            if (src[i] != zero) {
-                count++;
-            }
-        }
-        counts.push_back(count);
-        break;
-    }
+    // case 1: {
+    //     size_t count = 0;
+    //     for (size_t i = 0; i < inSize; i++) {
+    //         if (src[i] != zero) {
+    //             count++;
+    //         }
+    //     }
+    //     counts.push_back(count);
+    //     break;
+    // }
     default: {
         threadsCount = parallel_get_num_threads();
         if (inSize < blockSize * threadsCount)
