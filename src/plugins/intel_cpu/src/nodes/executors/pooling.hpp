@@ -12,7 +12,10 @@ namespace ov {
 namespace intel_cpu {
 
 struct PoolingAttrs {
-    bool exclude_pad;
+    bool isMaxPool8 = false;
+    bool exclude_pad = false;
+    bool auto_pad = false;
+
     op::PadType pad_type;
     Algorithm algorithm;
 
@@ -20,11 +23,21 @@ struct PoolingAttrs {
 
     std::vector<ptrdiff_t> stride;
     std::vector<ptrdiff_t> kernel;
-    //std::vector<ptrdiff_t> dilation;
-    ov::Strides dilation;
+    std::vector<ptrdiff_t> dilation;
+    //ov::Strides dilation;
 
     std::vector<ptrdiff_t> data_pad_begin;
     std::vector<ptrdiff_t> data_pad_end;
+
+    /// Effective padding. Used to define correct output shape by oneDNN
+    /// reshape formula: (iw - kernel + pad_l + pad_r) / strides[i - 2] + 1
+    /// should be passed into pooling desc constructor.
+    std::vector<ptrdiff_t> effective_pad_begin;
+    std::vector<ptrdiff_t> effective_pad_end;
+
+    /// Effective dilation. Used to define correct dilation for OneDNN.
+    /// For OneDNN default dilation is vector of zero
+    std::vector<ptrdiff_t> effective_dilation;
 };
 
 class PoolingExecutor {

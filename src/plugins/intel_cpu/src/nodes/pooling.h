@@ -58,22 +58,22 @@ private:
     Shape inShape;
 
     bool useACL = false;
-    bool isMaxPool8 = false;
-    bool auto_pad = false;
-    bool exclude_pad = false;
-    std::vector<ptrdiff_t> dilation;
-    std::vector<ptrdiff_t> stride;
-    std::vector<ptrdiff_t> kernel;
+    //bool isMaxPool8 = false;
+    //bool auto_pad = false;
+    //bool exclude_pad = false;
+    //std::vector<ptrdiff_t> dilation;
+    //std::vector<ptrdiff_t> stride;
+    //std::vector<ptrdiff_t> kernel;
 
     /// Effective padding. Used to define correct output shape by oneDNN
     /// reshape formula: (iw - kernel + pad_l + pad_r) / strides[i - 2] + 1
     /// should be passed into pooling desc constructor.
-    std::vector<ptrdiff_t> effective_pad_begin;
-    std::vector<ptrdiff_t> effective_pad_end;
+    //std::vector<ptrdiff_t> effective_pad_begin;
+    //std::vector<ptrdiff_t> effective_pad_end;
 
     /// Effective dilation. Used to define correct dilation for OneDNN.
     /// For OneDNN default dilation is vector of zero
-    std::vector<ptrdiff_t> effective_dilation;
+    //std::vector<ptrdiff_t> effective_dilation;
 
     /// Effective pad value. Describe how much zero element added to input
     /// data tensor. May be less than "Effective padding" values.

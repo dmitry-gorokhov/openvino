@@ -161,69 +161,66 @@ Pooling::Pooling(const std::shared_ptr<ov::Node>& op, const GraphContext::CPtr c
     };
 
     if (auto maxPoolOp_v8 = ov::as_type_ptr<const ov::op::v8::MaxPool>(op)) {
-        isMaxPool8 = true;
+        poolingAttrs.isMaxPool8 = true;
         algorithm = Algorithm::PoolingMax;
-        exclude_pad = false;
         poolingAttrs.exclude_pad = false;
         poolingAttrs.rounding = maxPoolOp_v8->get_rounding_type();
-        poolingAttrs.dilation = maxPoolOp_v8->get_dilations();
+        //poolingAttrs.dilation = maxPoolOp_v8->get_dilations();
         std::cout << "attrs: \nexclude_pad: " << (maxPoolOp_v8->get_auto_pad() != ov::op::PadType::EXPLICIT);
         poolingAttrs.pad_type = maxPoolOp_v8->get_auto_pad();
 std::cout << "   dilation: " << std::endl;
-        get_attributes(dilation, maxPoolOp_v8->get_dilations());
+        get_attributes(poolingAttrs.dilation, maxPoolOp_v8->get_dilations());
 std::cout << "   stride: " << std::endl;
-        get_attributes(stride, maxPoolOp_v8->get_strides());
+        get_attributes(poolingAttrs.stride, maxPoolOp_v8->get_strides());
 std::cout << "   kernel: " << std::endl;
-        get_attributes(kernel, maxPoolOp_v8->get_kernel());
+        get_attributes(poolingAttrs.kernel, maxPoolOp_v8->get_kernel());
 std::cout << "   data_pad_begin: " << std::endl;
         get_attributes(data_pad_begin, maxPoolOp_v8->get_pads_begin());
 std::cout << "   data_pad_end: " << std::endl;
         get_attributes(data_pad_end, maxPoolOp_v8->get_pads_end());
 
-        auto_pad = (maxPoolOp_v8->get_auto_pad() == ov::op::PadType::SAME_LOWER || maxPoolOp_v8->get_auto_pad() == ov::op::PadType::SAME_UPPER);
+        poolingAttrs.auto_pad = (maxPoolOp_v8->get_auto_pad() == ov::op::PadType::SAME_LOWER || maxPoolOp_v8->get_auto_pad() == ov::op::PadType::SAME_UPPER);
     } else if (auto maxPoolOp_v1 = ov::as_type_ptr<const ov::op::v1::MaxPool>(op)) {
         algorithm = Algorithm::PoolingMax;
-        exclude_pad = false;
         poolingAttrs.exclude_pad = false;
         poolingAttrs.pad_type = maxPoolOp_v1->get_auto_pad();
         poolingAttrs.rounding = maxPoolOp_v1->get_rounding_type();
 
-        get_attributes(stride, maxPoolOp_v1->get_strides());
-        get_attributes(kernel, maxPoolOp_v1->get_kernel());
+        get_attributes(poolingAttrs.stride, maxPoolOp_v1->get_strides());
+        get_attributes(poolingAttrs.kernel, maxPoolOp_v1->get_kernel());
         get_attributes(data_pad_begin, maxPoolOp_v1->get_pads_begin());
         get_attributes(data_pad_end, maxPoolOp_v1->get_pads_end());
-        dilation.resize(kernel.size(), 1);
+        poolingAttrs.dilation.resize(poolingAttrs.kernel.size(), 1);
 
-        auto_pad = (maxPoolOp_v1->get_auto_pad() == ov::op::PadType::SAME_LOWER || maxPoolOp_v1->get_auto_pad() == ov::op::PadType::SAME_UPPER);
+        poolingAttrs.auto_pad = (maxPoolOp_v1->get_auto_pad() == ov::op::PadType::SAME_LOWER || maxPoolOp_v1->get_auto_pad() == ov::op::PadType::SAME_UPPER);
     } else if (auto avgPoolOp = ov::as_type_ptr<const ov::op::v1::AvgPool>(op)) {
         algorithm = Algorithm::PoolingAvg;
-        exclude_pad = avgPoolOp->get_exclude_pad();
-        poolingAttrs.exclude_pad = exclude_pad;
+        poolingAttrs.exclude_pad = avgPoolOp->get_exclude_pad();
         poolingAttrs.rounding = avgPoolOp->get_rounding_type();
 
-        get_attributes(stride, avgPoolOp->get_strides());
-        get_attributes(kernel, avgPoolOp->get_kernel());
+        get_attributes(poolingAttrs.stride, avgPoolOp->get_strides());
+        get_attributes(poolingAttrs.kernel, avgPoolOp->get_kernel());
         get_attributes(data_pad_begin, avgPoolOp->get_pads_begin());
         get_attributes(data_pad_end, avgPoolOp->get_pads_end());
-        dilation.resize(kernel.size(), 1);
+        poolingAttrs.dilation.resize(poolingAttrs.kernel.size(), 1);
 
-        auto_pad = (avgPoolOp->get_auto_pad() == ov::op::PadType::SAME_LOWER || avgPoolOp->get_auto_pad() == ov::op::PadType::SAME_UPPER);
+        poolingAttrs.auto_pad = (avgPoolOp->get_auto_pad() == ov::op::PadType::SAME_LOWER || avgPoolOp->get_auto_pad() == ov::op::PadType::SAME_UPPER);
     }
 //poolingAttrs.exclude_pad = exclude_pad;
     poolingAttrs.algorithm = algorithm;
-    poolingAttrs.stride = stride;
-    poolingAttrs.kernel = kernel;
+    //poolingAttrs.stride = stride;
+    //poolingAttrs.kernel = kernel;
     poolingAttrs.data_pad_begin = data_pad_begin;
     poolingAttrs.data_pad_end = data_pad_end;
     //poolingAttrs.dilation = dilation;
 
-    /*poolingAttrs.data_pad_begin.clear();
-    poolingAttrs.data_pad_begin.push_back(static_cast<ptrdiff_t>(0));
-    poolingAttrs.data_pad_begin.push_back(static_cast<ptrdiff_t>(0));
+    /*data_pad_begin.clear();
+    data_pad_begin.push_back(static_cast<ptrdiff_t>(0));
+    data_pad_begin.push_back(static_cast<ptrdiff_t>(0));
 
-    poolingAttrs.data_pad_end.clear();
-    poolingAttrs.data_pad_end.push_back(static_cast<ptrdiff_t>(0));
-    poolingAttrs.data_pad_end.push_back(static_cast<ptrdiff_t>(0));*/
+    data_pad_end.clear();
+    data_pad_end.push_back(static_cast<ptrdiff_t>(0));
+    data_pad_end.push_back(static_cast<ptrdiff_t>(0));*/
 }
 
 std::vector<memory::format_tag> Pooling::getAvailableFormatsForDims(const Shape &dims) const {
@@ -243,22 +240,22 @@ std::vector<memory::format_tag> Pooling::getAvailableFormatsForDims(const Shape 
 }
 
 void Pooling::initEffectiveAttributes(const Shape &inShape, const Shape &outShape) {
-    effective_pad_begin = data_pad_begin;
-    effective_pad_end.resize(data_pad_end.size());
-    effective_dilation.resize(dilation.size(), 0);
+    poolingAttrs.effective_pad_begin = data_pad_begin;
+    poolingAttrs.effective_pad_end.resize(data_pad_end.size());
+    poolingAttrs.effective_dilation.resize(poolingAttrs.dilation.size(), 0);
 
     const auto &inDims = inShape.getStaticDims();
     const auto &outDims = outShape.getStaticDims();
 
-    for (int i = 0; i < effective_pad_end.size(); i++) {
-        int krn = kernel[i];
-        int dil = dilation[i];
+    for (int i = 0; i < poolingAttrs.effective_pad_end.size(); i++) {
+        int krn = poolingAttrs.kernel[i];
+        int dil = poolingAttrs.dilation[i];
         int src = inDims[2 + i];
         int dst = outDims[2 + i];
 
-        int calc_dst = (src - (1 + (krn  - 1) * dil) + data_pad_begin[i]) / stride[i] + 1;
-        effective_pad_end[i] = (dst - calc_dst) * stride[i];
-        effective_dilation[i] = dil - 1;
+        int calc_dst = (src - (1 + (krn  - 1) * dil) + data_pad_begin[i]) / poolingAttrs.stride[i] + 1;
+        poolingAttrs.effective_pad_end[i] = (dst - calc_dst) * poolingAttrs.stride[i];
+        poolingAttrs.effective_dilation[i] = dil - 1;
     }
 }
 
@@ -310,7 +307,7 @@ void Pooling::getSupportedDescriptors() {
         auto inDims = inShape.getStaticDims();
         for (size_t i = 0; i < inDims.size() - 2; i++) {
             if (origDims[i + 2] == Shape::UNDEFINED_DIM) {
-                inDims[i + 2] = std::min<Dim>(origMaxDims[i + 2], std::max<Dim>(inDims[i + 2], kernel[i]));
+                inDims[i + 2] = std::min<Dim>(origMaxDims[i + 2], std::max<Dim>(inDims[i + 2], poolingAttrs.kernel[i]));
             }
         }
         inShape = Shape(inDims);
@@ -370,7 +367,7 @@ void Pooling::prepareParams() {
         auto outDesc = getChildEdgesAtPort(0)[0]->getMemory().GetDescWithType<DnnlMemoryDesc>();
 
         if (isDynamicNode()) {
-            if (auto_pad) {
+            if (poolingAttrs.auto_pad) {
             data_pad_begin = shapeInference->get_pads_begin();
             data_pad_end = shapeInference->get_pads_end();
             }
@@ -380,11 +377,11 @@ void Pooling::prepareParams() {
         dnnl::algorithm alg = getPoolingAlgorithm();
         PoolingKey key = {inDesc,
                           outDesc,
-                      stride,
-                      kernel,
-                          effective_pad_begin,
-                          effective_pad_end,
-                          effective_dilation,
+                      poolingAttrs.stride,
+                      poolingAttrs.kernel,
+                          poolingAttrs.effective_pad_begin,
+                          poolingAttrs.effective_pad_end,
+                          poolingAttrs.effective_dilation,
                       data_pad_end,
                           *attr,
                           alg,
@@ -499,7 +496,7 @@ dnnl::algorithm Pooling::getPoolingAlgorithm() const {
                 break;
             }
         }
-        if (!exclude_pad && (not_zero_l || not_zero_r))
+        if (!poolingAttrs.exclude_pad && (not_zero_l || not_zero_r))
             return dnnl::algorithm::pooling_avg_include_padding;
         else
             return dnnl::algorithm::pooling_avg_exclude_padding;
@@ -517,11 +514,11 @@ std::shared_ptr<pooling_v2_forward::desc> Pooling::createDescriptorInternal(
     return createDescriptorHelper(in_candidate,
                                   out_candidate,
                                   alg,
-                                  stride,
-                                  kernel,
-                                  effective_pad_begin,
-                                  effective_pad_end,
-                                  effective_dilation,
+                                  poolingAttrs.stride,
+                                  poolingAttrs.kernel,
+                                  poolingAttrs.effective_pad_begin,
+                                  poolingAttrs.effective_pad_end,
+                                  poolingAttrs.effective_dilation,
                                   data_pad_end);
 }
 
@@ -535,7 +532,7 @@ void Pooling::createDescriptor(const std::vector<MemoryDescPtr> &inputDesc,
     if (!outDesc->isDefined()) {
         auto outDims = shapeInferGeneric({Shape(inDesc->getShape().getStaticDims())});
         outDesc = outDesc->cloneWithNewDims(outDims[0]);
-        if (auto_pad) {
+        if (poolingAttrs.auto_pad) {
             data_pad_begin = shapeInference->get_pads_begin();
             data_pad_end = shapeInference->get_pads_end();
         }
@@ -579,7 +576,7 @@ void Pooling::initSupportedPrimitiveDescriptors() {
                 }
 
             // CPU plugin doesn't support second output of MaxPool-8, but anyway we should have out config for second port as stub
-                if (isMaxPool8) {
+                if (poolingAttrs.isMaxPool8) {
                     auto& creatorsMap = BlockedDescCreator::getCommonCreators();
                     PortConfig dataConfig;
                     dataConfig.inPlace(-1);
@@ -657,7 +654,7 @@ void Pooling::initDescriptor(const NodeConfig& config) {
             }
 
             // CPU plugin doesn't support second output of MaxPool-8, but anyway we should have out config for second port as stub
-            if (isMaxPool8) {
+            if (poolingAttrs.isMaxPool8) {
                 auto& creatorsMap = BlockedDescCreator::getCommonCreators();
                 PortConfig dataConfig;
                 dataConfig.inPlace(-1);
