@@ -175,9 +175,9 @@ std::cout << "   stride: " << std::endl;
 std::cout << "   kernel: " << std::endl;
         get_attributes(poolingAttrs.kernel, maxPoolOp_v8->get_kernel());
 std::cout << "   data_pad_begin: " << std::endl;
-        get_attributes(data_pad_begin, maxPoolOp_v8->get_pads_begin());
+        get_attributes(poolingAttrs.data_pad_begin, maxPoolOp_v8->get_pads_begin());
 std::cout << "   data_pad_end: " << std::endl;
-        get_attributes(data_pad_end, maxPoolOp_v8->get_pads_end());
+        get_attributes(poolingAttrs.data_pad_end, maxPoolOp_v8->get_pads_end());
 
         poolingAttrs.auto_pad = (maxPoolOp_v8->get_auto_pad() == ov::op::PadType::SAME_LOWER || maxPoolOp_v8->get_auto_pad() == ov::op::PadType::SAME_UPPER);
     } else if (auto maxPoolOp_v1 = ov::as_type_ptr<const ov::op::v1::MaxPool>(op)) {
@@ -188,8 +188,8 @@ std::cout << "   data_pad_end: " << std::endl;
 
         get_attributes(poolingAttrs.stride, maxPoolOp_v1->get_strides());
         get_attributes(poolingAttrs.kernel, maxPoolOp_v1->get_kernel());
-        get_attributes(data_pad_begin, maxPoolOp_v1->get_pads_begin());
-        get_attributes(data_pad_end, maxPoolOp_v1->get_pads_end());
+        get_attributes(poolingAttrs.data_pad_begin, maxPoolOp_v1->get_pads_begin());
+        get_attributes(poolingAttrs.data_pad_end, maxPoolOp_v1->get_pads_end());
         poolingAttrs.dilation.resize(poolingAttrs.kernel.size(), 1);
 
         poolingAttrs.auto_pad = (maxPoolOp_v1->get_auto_pad() == ov::op::PadType::SAME_LOWER || maxPoolOp_v1->get_auto_pad() == ov::op::PadType::SAME_UPPER);
@@ -200,8 +200,8 @@ std::cout << "   data_pad_end: " << std::endl;
 
         get_attributes(poolingAttrs.stride, avgPoolOp->get_strides());
         get_attributes(poolingAttrs.kernel, avgPoolOp->get_kernel());
-        get_attributes(data_pad_begin, avgPoolOp->get_pads_begin());
-        get_attributes(data_pad_end, avgPoolOp->get_pads_end());
+        get_attributes(poolingAttrs.data_pad_begin, avgPoolOp->get_pads_begin());
+        get_attributes(poolingAttrs.data_pad_end, avgPoolOp->get_pads_end());
         poolingAttrs.dilation.resize(poolingAttrs.kernel.size(), 1);
 
         poolingAttrs.auto_pad = (avgPoolOp->get_auto_pad() == ov::op::PadType::SAME_LOWER || avgPoolOp->get_auto_pad() == ov::op::PadType::SAME_UPPER);
@@ -210,17 +210,17 @@ std::cout << "   data_pad_end: " << std::endl;
     poolingAttrs.algorithm = algorithm;
     //poolingAttrs.stride = stride;
     //poolingAttrs.kernel = kernel;
-    poolingAttrs.data_pad_begin = data_pad_begin;
-    poolingAttrs.data_pad_end = data_pad_end;
+    //poolingAttrs.data_pad_begin = data_pad_begin;
+    //poolingAttrs.data_pad_end = data_pad_end;
     //poolingAttrs.dilation = dilation;
 
-    /*data_pad_begin.clear();
-    data_pad_begin.push_back(static_cast<ptrdiff_t>(0));
-    data_pad_begin.push_back(static_cast<ptrdiff_t>(0));
+    /*poolingAttrs.data_pad_begin.clear();
+    poolingAttrs.data_pad_begin.push_back(static_cast<ptrdiff_t>(0));
+    poolingAttrs.data_pad_begin.push_back(static_cast<ptrdiff_t>(0));
 
-    data_pad_end.clear();
-    data_pad_end.push_back(static_cast<ptrdiff_t>(0));
-    data_pad_end.push_back(static_cast<ptrdiff_t>(0));*/
+    poolingAttrs.data_pad_end.clear();
+    poolingAttrs.data_pad_end.push_back(static_cast<ptrdiff_t>(0));
+    poolingAttrs.data_pad_end.push_back(static_cast<ptrdiff_t>(0));*/
 }
 
 std::vector<memory::format_tag> Pooling::getAvailableFormatsForDims(const Shape &dims) const {
@@ -240,8 +240,8 @@ std::vector<memory::format_tag> Pooling::getAvailableFormatsForDims(const Shape 
 }
 
 void Pooling::initEffectiveAttributes(const Shape &inShape, const Shape &outShape) {
-    poolingAttrs.effective_pad_begin = data_pad_begin;
-    poolingAttrs.effective_pad_end.resize(data_pad_end.size());
+    poolingAttrs.effective_pad_begin = poolingAttrs.data_pad_begin;
+    poolingAttrs.effective_pad_end.resize(poolingAttrs.data_pad_end.size());
     poolingAttrs.effective_dilation.resize(poolingAttrs.dilation.size(), 0);
 
     const auto &inDims = inShape.getStaticDims();
@@ -253,7 +253,7 @@ void Pooling::initEffectiveAttributes(const Shape &inShape, const Shape &outShap
         int src = inDims[2 + i];
         int dst = outDims[2 + i];
 
-        int calc_dst = (src - (1 + (krn  - 1) * dil) + data_pad_begin[i]) / poolingAttrs.stride[i] + 1;
+        int calc_dst = (src - (1 + (krn  - 1) * dil) + poolingAttrs.data_pad_begin[i]) / poolingAttrs.stride[i] + 1;
         poolingAttrs.effective_pad_end[i] = (dst - calc_dst) * poolingAttrs.stride[i];
         poolingAttrs.effective_dilation[i] = dil - 1;
     }
@@ -270,6 +270,83 @@ void Pooling::getSupportedDescriptors() {
 
     InferenceEngine::Precision inputPrecision = getOriginalInputPrecisionAtPort(0);
     InferenceEngine::Precision outputPrecision = getOriginalOutputPrecisionAtPort(0);
+
+#if defined(OV_CPU_WITH_ACL)
+    //if getInputShapeAtPort(0).
+    useACL = true;
+    auto srcDims = getInputShapeAtPort(0).getDims();//getStaticDims();
+    auto dstDims = getOutputShapeAtPort(0).getDims();//getStaticDims();
+
+    // WA: we may specify any layout here (NCHW or NHWC) since both are supported by ACL
+    arm_compute::TensorInfo srcTensorInfo = arm_compute::TensorInfo(shapeCast(srcDims),
+                                                                    1,
+                                                                    precisionToAclDataType(inputPrecision),
+                                                                    arm_compute::DataLayout::NCHW);
+    arm_compute::TensorInfo dstTensorInfo = arm_compute::TensorInfo(shapeCast(dstDims),
+                                                                    1,
+                                                                    precisionToAclDataType(outputPrecision),
+                                                                    arm_compute::DataLayout::NCHW);
+
+    if (getInputShapeAtPort(0).getRank() != 4) {
+        std::cout << "Pooling::getSupportedDescriptors only 4D input tensors are supported. Tensor rank: " << getInputShapeAtPort(0).getRank() << std::endl;
+        //useACL = false;
+        //return;
+    }
+
+    arm_compute::PoolingLayerInfo pool_info;
+    unsigned int pad_left = poolingAttrs.data_pad_begin[1];
+    unsigned int pad_right = poolingAttrs.data_pad_end[1];
+    unsigned int pad_top = poolingAttrs.data_pad_begin[0];
+    unsigned int pad_bottom = poolingAttrs.data_pad_end[0];
+    unsigned int kernel_w = poolingAttrs.kernel[1];
+    unsigned int kernel_h = poolingAttrs.kernel[0];
+    unsigned int stride_x = poolingAttrs.stride[1];
+    unsigned int stride_y = poolingAttrs.stride[0];
+
+    // TODO: need to fix
+    arm_compute::DimensionRoundingType round = arm_compute::DimensionRoundingType::CEIL;
+
+    pool_info.data_layout = arm_compute::DataLayout::NCHW;
+    pool_info.pool_size = arm_compute::Size2D(kernel_w, kernel_h);
+    pool_info.pad_stride_info =
+        arm_compute::PadStrideInfo(stride_x, stride_y, pad_left, pad_right, pad_top, pad_bottom, round);
+    pool_info.exclude_padding = poolingAttrs.exclude_pad;
+
+    if (poolingAttrs.algorithm == Algorithm::PoolingMax) {
+        pool_info.pool_type = arm_compute::PoolingType::MAX;
+    } else if (poolingAttrs.algorithm == Algorithm::PoolingAvg) {
+        pool_info.pool_type = arm_compute::PoolingType::AVG;
+    } else {
+        std::cout << "unknown algo: " << static_cast<int>(poolingAttrs.algorithm) << std::endl;
+        useACL = false;
+        std::cout << "useACL=" << useACL << std::endl;
+        return;
+    }
+
+    arm_compute::TensorInfo indTensorInfo;
+    if (getOriginalOutputsNumber() > 1) {
+        auto indDims = getOutputShapeAtPort(1).getStaticDims();
+        indTensorInfo =
+            arm_compute::TensorInfo(shapeCast(indDims), 1, arm_compute::DataType::U32, arm_compute::DataLayout::NCHW);
+        arm_compute::Status s =
+            arm_compute::NEPoolingLayer::validate(&srcTensorInfo, &dstTensorInfo, pool_info, &indTensorInfo);
+        if (!s) {
+            std::cout << "validate failed (ind): " << s.error_description() << std::endl;
+            useACL = false;
+            std::cout << "useACL=" << useACL << std::endl;
+            return;
+        }
+    } else {
+        arm_compute::Status s = arm_compute::NEPoolingLayer::validate(&srcTensorInfo, &dstTensorInfo, pool_info);
+        if (!s) {
+            std::cout << "validate failed (no ind): " << s.error_description() << std::endl;
+            useACL = false;
+            std::cout << "useACL=" << useACL << std::endl;
+            return;
+        }
+    }
+#endif
+    std::cout << "useACL=" << useACL << std::endl;
 
     // WA: LPT transformation has WA which allows average pooling has I8/U8 output precision instead of FP32,
     // so we explicitly set output precision as FP32
@@ -348,11 +425,11 @@ void Pooling::getSupportedDescriptors() {
 }
 
 void Pooling::prepareParams() {
-    const NodeDesc *selected_pd = getSelectedPrimitiveDescriptor();
+    /*const NodeDesc **/ auto selected_pd = getSelectedPrimitiveDescriptor();
     if (selected_pd == nullptr)
         IE_THROW()  << "Pooling node with name '" << getName() << "' did not set preferable primitive descriptor";
 
-#if defined(OPENVINO_ARCH_X86_64)
+//#if defined(OPENVINO_ARCH_X86_64)
     AttrPtr attr;
     if (isDynamicNode()) {
         if (!pAttr) {
@@ -363,13 +440,36 @@ void Pooling::prepareParams() {
         attr = initPrimitiveAttr();
     }
 
+    if (useACL) {
+        auto& dstMemPtr = getChildEdgeAt(0)->getMemoryPtr();
+        auto& srcMemPtr = getParentEdgeAt(0)->getMemoryPtr();
+        if (!dstMemPtr || !dstMemPtr->isAllocated())
+            IE_THROW() << "Destination memory didn't allocate.";
+        if (!srcMemPtr || !srcMemPtr->isAllocated())
+            IE_THROW() << "Input memory didn't allocate.";
+
+        std::vector<MemoryDescPtr> srcMemoryDescs;
+        for (int i = 0; i < getOriginalInputsNumber(); i++) {
+            srcMemoryDescs.push_back(getParentEdgeAt(i)->getMemoryPtr()->getDescPtr());
+        }
+        std::vector<MemoryDescPtr> dstMemoryDescs;
+        for (int i = 0; i < getOriginalOutputsNumber(); i++) {
+            dstMemoryDescs.push_back(getChildEdgeAt(i)->getMemoryPtr()->getDescPtr());
+        }
+
+        execPtr = selected_pd->getExecutorFactoryAs<PoolingExecutorFactory>()->makeExecutor(poolingAttrs,
+                                                                                            srcMemoryDescs,
+                                                                                            dstMemoryDescs,
+                                                                                            *attr);
+        selected_pd->setImplementationType(execPtr->getImplType());
+    } else {
         auto inDesc = getParentEdgesAtPort(0)[0]->getMemory().GetDescWithType<DnnlMemoryDesc>();
         auto outDesc = getChildEdgesAtPort(0)[0]->getMemory().GetDescWithType<DnnlMemoryDesc>();
 
         if (isDynamicNode()) {
             if (poolingAttrs.auto_pad) {
-            data_pad_begin = shapeInference->get_pads_begin();
-            data_pad_end = shapeInference->get_pads_end();
+            poolingAttrs.data_pad_begin = shapeInference->get_pads_begin();
+            poolingAttrs.data_pad_end = shapeInference->get_pads_end();
             }
             initEffectiveAttributes(inDesc->getShape(), outDesc->getShape());
         }
@@ -377,12 +477,12 @@ void Pooling::prepareParams() {
         dnnl::algorithm alg = getPoolingAlgorithm();
         PoolingKey key = {inDesc,
                           outDesc,
-                      poolingAttrs.stride,
-                      poolingAttrs.kernel,
+                          poolingAttrs.stride,
+                          poolingAttrs.kernel,
                           poolingAttrs.effective_pad_begin,
                           poolingAttrs.effective_pad_end,
                           poolingAttrs.effective_dilation,
-                      data_pad_end,
+                          poolingAttrs.data_pad_end,
                           *attr,
                           alg,
                           selected_pd->getImplementationType()};
@@ -429,8 +529,9 @@ void Pooling::prepareParams() {
         primArgs = {{DNNL_ARG_SRC, src}, {DNNL_ARG_DST, dst}, {DNNL_ARG_SCRATCHPAD, scratchpadMem->GetPrimitive()}};
 
         Node::appendPostOpArgs(*attr, primArgs, postOpsArgs);
-#else
-    auto& dstMemPtr = getChildEdgeAt(0)->getMemoryPtr();
+    }
+//#else
+    /*auto& dstMemPtr = getChildEdgeAt(0)->getMemoryPtr();
     auto& srcMemPtr = getParentEdgeAt(0)->getMemoryPtr();
     if (!dstMemPtr || !dstMemPtr->isAllocated())
         IE_THROW() << "Destination memory didn't allocate.";
@@ -451,8 +552,8 @@ void Pooling::prepareParams() {
 
     auto selectedPD = getSelectedPrimitiveDescriptor();
     execPtr = selectedPD->getExecutorFactoryAs<PoolingExecutorFactory>()->makeExecutor(poolingAttrs, srcMemoryDescs, dstMemoryDescs, attr);
-    selectedPD->setImplementationType(execPtr->getImplType());
-#endif
+    selectedPD->setImplementationType(execPtr->getImplType());*/
+//#endif
         }
 
 void Pooling::executeDynamicImpl(dnnl::stream strm) {
@@ -460,6 +561,9 @@ void Pooling::executeDynamicImpl(dnnl::stream strm) {
 }
 
 void Pooling::execute(dnnl::stream strm) {
+    if (useACL) {
+        std::cout << "Pooling::execute - ACL branch" << std::endl;
+
     if (!execPtr) {
         IE_THROW() << "Can't execute Pooling node. Executor is not created";
     }
@@ -474,6 +578,12 @@ void Pooling::execute(dnnl::stream strm) {
     }
 
     execPtr->exec(srcMemory, dstMemory, postOpsArgs);
+    } else {
+        std::cout << "Pooling::execute - ref branch" << std::endl;
+        if (prim) {
+            (*prim).execute(strm, primArgs);
+        }
+    }
 }
 
 bool Pooling::created() const {
@@ -483,14 +593,14 @@ bool Pooling::created() const {
 dnnl::algorithm Pooling::getPoolingAlgorithm() const {
     if (algorithm == Algorithm::PoolingAvg) {
         bool not_zero_l = false;
-        for (auto lr : data_pad_begin) {
+        for (auto lr : poolingAttrs.data_pad_begin) {
             if (lr) {
                 not_zero_l = true;
                 break;
             }
         }
         bool not_zero_r = false;
-        for (auto pr : data_pad_end) {
+        for (auto pr : poolingAttrs.data_pad_end) {
             if (pr) {
                 not_zero_r = true;
                 break;
@@ -519,7 +629,7 @@ std::shared_ptr<pooling_v2_forward::desc> Pooling::createDescriptorInternal(
                                   poolingAttrs.effective_pad_begin,
                                   poolingAttrs.effective_pad_end,
                                   poolingAttrs.effective_dilation,
-                                  data_pad_end);
+                                  poolingAttrs.data_pad_end);
 }
 
 void Pooling::createDescriptor(const std::vector<MemoryDescPtr> &inputDesc,
@@ -533,8 +643,8 @@ void Pooling::createDescriptor(const std::vector<MemoryDescPtr> &inputDesc,
         auto outDims = shapeInferGeneric({Shape(inDesc->getShape().getStaticDims())});
         outDesc = outDesc->cloneWithNewDims(outDims[0]);
         if (poolingAttrs.auto_pad) {
-            data_pad_begin = shapeInference->get_pads_begin();
-            data_pad_end = shapeInference->get_pads_end();
+            poolingAttrs.data_pad_begin = shapeInference->get_pads_begin();
+            poolingAttrs.data_pad_end = shapeInference->get_pads_end();
         }
         initEffectiveAttributes(inDesc->getShape(), outDesc->getShape());
     }
@@ -552,6 +662,37 @@ void Pooling::initSupportedPrimitiveDescriptors() {
     dnnl::primitive_attr attr;
     setPostOps(attr);
 
+    if (useACL) {
+        auto& creatorsMap = BlockedDescCreator::getCommonCreators();
+        auto pushDesc = [&](LayoutType format) {
+            NodeConfig config;
+            config.dynBatchSupport = false;
+            config.inConfs.resize(getParentEdges().size());
+            config.outConfs.resize(getOriginalOutputsNumber());
+
+            config.inConfs[0].setMemDesc(
+                creatorsMap.at(format)->createSharedDesc(getOriginalInputPrecisionAtPort(0), getInputShapeAtPort(0)));
+            config.outConfs[0].setMemDesc(
+                creatorsMap.at(format)->createSharedDesc(getOriginalOutputPrecisionAtPort(0), getOutputShapeAtPort(0)));
+
+            std::vector<MemoryDescPtr> srcMemoryDescs;
+            for (int i = 0; i < config.inConfs.size(); i++) {
+                srcMemoryDescs.push_back(config.inConfs[i].getMemDesc());
+            }
+            std::vector<MemoryDescPtr> dstMemoryDescs;
+            for (int i = 0; i < config.outConfs.size(); i++) {
+                dstMemoryDescs.push_back(config.outConfs[i].getMemDesc());
+            }
+
+            auto factory = std::make_shared<PoolingExecutorFactory>(
+                poolingAttrs,
+                srcMemoryDescs,
+                dstMemoryDescs,
+                std::make_shared<ExecutorContext>(context, getPrimitivesPriority()));
+            supportedPrimitiveDescriptors.emplace_back(config, impl_desc_type::ref_any, factory);
+        };
+        pushDesc(LayoutType::ncsp);
+    } else {
         for (auto& desc : descs) {
             auto itpd = desc.createPrimitiveDescriptorIterator(getEngine(), attr);
             while (static_cast<bool>(itpd)) {
@@ -587,10 +728,10 @@ void Pooling::initSupportedPrimitiveDescriptors() {
                     config.outConfs.push_back(dataConfig);
                 }
 
-        #if defined(OPENVINO_ARCH_X86_64)
+        //#if defined(OPENVINO_ARCH_X86_64)
                 impl_desc_type impl_type = parse_impl_name(itpd.impl_info_str());
                 supportedPrimitiveDescriptors.emplace_back(config, impl_type);
-        #else
+        /*#else
                     std::vector<MemoryDescPtr> srcMemoryDescs;
                     for (int i = 0; i < config.inConfs.size(); i++) {
                         srcMemoryDescs.push_back(config.inConfs[i].getMemDesc());
@@ -603,14 +744,18 @@ void Pooling::initSupportedPrimitiveDescriptors() {
             auto factory = std::make_shared<PoolingExecutorFactory>(poolingAttrs, srcMemoryDescs, dstMemoryDescs,
                                                                 std::make_shared<ExecutorContext>(context, getPrimitivesPriority()));
             supportedPrimitiveDescriptors.emplace_back(config, impl_desc_type::ref_any, factory);
-        #endif
+        #endif*/
                 if (!itpd.next_impl())
                     break;
             }
         }
     }
+    }
 
 void Pooling::initDescriptor(const NodeConfig& config) {
+    if (useACL)
+        return;
+
     auto* selectedPD = getSelectedPrimitiveDescriptor();
     if (!selectedPD) {
         return;

@@ -79,8 +79,8 @@ private:
     /// data tensor. May be less than "Effective padding" values.
     /// If pooling window is out of this padding, the region of averaging
     /// is decreased.
-    std::vector<ptrdiff_t> data_pad_begin;
-    std::vector<ptrdiff_t> data_pad_end;
+    //std::vector<ptrdiff_t> data_pad_begin;
+    //std::vector<ptrdiff_t> data_pad_end;
 };
 
 }   // namespace node
