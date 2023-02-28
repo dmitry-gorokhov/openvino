@@ -19,19 +19,33 @@ bool AclPoolingExecutor::init(const PoolingAttrs& poolingAttrs,
                              const dnnl::primitive_attr &attr) {
     auto srcDims = srcDescs[0]->getShape().getStaticDims();
     auto dstDims = dstDescs[0]->getShape().getStaticDims();
-
     /*if (poolingAttrs.dilation != ov::Strides{1, 1}) {
         std::cout << "AclPoolingExecutor::init unsupported dilation!" << std::endl;
     }*/
 
     if (srcDims.size() != 4) {
         std::cout << "AclPoolingExecutor::init only 4D input tensors are supported. Tensor rank: " << srcDims.size() << std::endl;
-        return false;
+        //return false;
     }
-    TensorInfo srcTensorInfo = TensorInfo(shapeCast(srcDims), 1,
-    precisionToAclDataType(srcDescs[0]->getPrecision()), getAclDataLayoutByMemoryDesc(srcDescs[0]));
-    TensorInfo dstTensorInfo = TensorInfo(shapeCast(dstDims), 1,
-    precisionToAclDataType(dstDescs[0]->getPrecision()), getAclDataLayoutByMemoryDesc(dstDescs[0]));
+
+    /*VectorDims srcDimsReduced;
+    VectorDims dstDimsReduced;
+    if (srcDims.size() == 5) {
+        srcDimsReduced.push_back(srcDims[0] * srcDims[1]);
+        srcDimsReduced.push_back(srcDims[2]);
+        srcDimsReduced.push_back(srcDims[3]);
+        srcDimsReduced.push_back(srcDims[4]);
+        dstDimsReduced.push_back(dstDims[0] * dstDims[1]);
+        dstDimsReduced.push_back(dstDims[2]);
+        dstDimsReduced.push_back(dstDims[3]);
+        dstDimsReduced.push_back(dstDims[4]);
+    }*/
+
+    TensorInfo srcTensorInfo = TensorInfo(shapeCast(/*(srcDims.size() == 5) ? srcDimsReduced :*/ srcDims), 1,
+    precisionToAclDataType(srcDescs[0]->getPrecision()), getAclDataLayoutByMemoryDesc(srcDescs[0])/*arm_compute::DataLayout::NCHW*/);
+    TensorInfo dstTensorInfo = TensorInfo(shapeCast(/*(srcDims.size() == 5) ? dstDimsReduced :*/ dstDims), 1,
+    precisionToAclDataType(dstDescs[0]->getPrecision()), getAclDataLayoutByMemoryDesc(dstDescs[0])/*arm_compute::DataLayout::NCHW*/;
+
 
     arm_compute::PoolingLayerInfo pool_info;
     unsigned int pad_left   = poolingAttrs.data_pad_begin[1];
