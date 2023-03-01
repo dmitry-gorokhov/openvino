@@ -274,15 +274,37 @@ void Pooling::getSupportedDescriptors() {
 #if defined(OV_CPU_WITH_ACL)
     //if getInputShapeAtPort(0).
     useACL = true;
-    auto srcDims = getInputShapeAtPort(0).getDims();//getStaticDims();
-    auto dstDims = getOutputShapeAtPort(0).getDims();//getStaticDims();
+    //auto srcDims = getInputShapeAtPort(0).getStaticDims();
+    //auto dstDims = getOutputShapeAtPort(0).getStaticDims();
+
+
+    const auto &parentShape1 = getInputShapeAtPort(0);
+    const auto &childShape1 = getOutputShapeAtPort(0);
+    //const size_t inputRank = getInputShapeAtPort(0).getRank();
+
+    //if ((inputRank < 3) || (inputRank > 5))
+    //    IE_THROW() << "Pooling layer. Unsupported mode. Only 3D, 4D and 5D blobs are supported as input.";
+
+    auto inShape1 = MemoryDescUtils::makeDummyShape(parentShape1);
+    if (isDynamicNode()) {
+        const auto& origDims = parentShape1.getDims();
+        const auto& origMaxDims = parentShape1.getMaxDims();
+
+        auto inDims = inShape1.getStaticDims();
+        for (size_t i = 0; i < inDims.size() - 2; i++) {
+            if (origDims[i + 2] == Shape::UNDEFINED_DIM) {
+                inDims[i + 2] = std::min<Dim>(origMaxDims[i + 2], std::max<Dim>(inDims[i + 2], poolingAttrs.kernel[i]));
+            }
+        }
+        inShape1 = Shape(inDims);
+    }
 
     // WA: we may specify any layout here (NCHW or NHWC) since both are supported by ACL
-    arm_compute::TensorInfo srcTensorInfo = arm_compute::TensorInfo(shapeCast(srcDims),
+    arm_compute::TensorInfo srcTensorInfo = arm_compute::TensorInfo(shapeCast(/*srcDims*/MemoryDescUtils::makeDummyShape(parentShape1).getDims()),
                                                                     1,
                                                                     precisionToAclDataType(inputPrecision),
                                                                     arm_compute::DataLayout::NCHW);
-    arm_compute::TensorInfo dstTensorInfo = arm_compute::TensorInfo(shapeCast(dstDims),
+    arm_compute::TensorInfo dstTensorInfo = arm_compute::TensorInfo(shapeCast(/*dstDims*/MemoryDescUtils::makeDummyShape(childShape1).getDims()),
                                                                     1,
                                                                     precisionToAclDataType(outputPrecision),
                                                                     arm_compute::DataLayout::NCHW);
@@ -294,13 +316,13 @@ void Pooling::getSupportedDescriptors() {
     }
 
     arm_compute::PoolingLayerInfo pool_info;
-    unsigned int pad_left = poolingAttrs.data_pad_begin[1];
-    unsigned int pad_right = poolingAttrs.data_pad_end[1];
+    unsigned int pad_left = (poolingAttrs.data_pad_begin.size() == 2) ? poolingAttrs.data_pad_begin[1] : 0;//poolingAttrs.data_pad_begin[0];
+    unsigned int pad_right = (poolingAttrs.data_pad_end.size() == 2) ? poolingAttrs.data_pad_end[1] : 0;//poolingAttrs.data_pad_end[0];
     unsigned int pad_top = poolingAttrs.data_pad_begin[0];
     unsigned int pad_bottom = poolingAttrs.data_pad_end[0];
-    unsigned int kernel_w = poolingAttrs.kernel[1];
+    unsigned int kernel_w = (poolingAttrs.kernel.size() == 2) ? poolingAttrs.kernel[1] : poolingAttrs.kernel[0];
     unsigned int kernel_h = poolingAttrs.kernel[0];
-    unsigned int stride_x = poolingAttrs.stride[1];
+    unsigned int stride_x = (poolingAttrs.stride.size() == 2) ?  poolingAttrs.stride[1] : poolingAttrs.stride[0];
     unsigned int stride_y = poolingAttrs.stride[0];
 
     // TODO: need to fix
@@ -311,6 +333,7 @@ void Pooling::getSupportedDescriptors() {
     pool_info.pad_stride_info =
         arm_compute::PadStrideInfo(stride_x, stride_y, pad_left, pad_right, pad_top, pad_bottom, round);
     pool_info.exclude_padding = poolingAttrs.exclude_pad;
+    //pool_info.is_global_pooling = true;
 
     if (poolingAttrs.algorithm == Algorithm::PoolingMax) {
         pool_info.pool_type = arm_compute::PoolingType::MAX;
@@ -325,9 +348,9 @@ void Pooling::getSupportedDescriptors() {
 
     arm_compute::TensorInfo indTensorInfo;
     if (getOriginalOutputsNumber() > 1) {
-        auto indDims = getOutputShapeAtPort(1).getStaticDims();
-        indTensorInfo =
-            arm_compute::TensorInfo(shapeCast(indDims), 1, arm_compute::DataType::U32, arm_compute::DataLayout::NCHW);
+        //auto indDims = getOutputShapeAtPort(1).getStaticDims();
+        indTensorInfo = arm_compute::TensorInfo(shapeCast(MemoryDescUtils::makeDummyShape(getOutputShapeAtPort(1)).getDims()/*indDims*/),
+         1, arm_compute::DataType::U32, arm_compute::DataLayout::NCHW);
         arm_compute::Status s =
             arm_compute::NEPoolingLayer::validate(&srcTensorInfo, &dstTensorInfo, pool_info, &indTensorInfo);
         if (!s) {

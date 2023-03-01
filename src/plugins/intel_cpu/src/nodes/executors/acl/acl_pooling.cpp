@@ -41,21 +41,21 @@ bool AclPoolingExecutor::init(const PoolingAttrs& poolingAttrs,
         dstDimsReduced.push_back(dstDims[4]);
     }*/
 
-    TensorInfo srcTensorInfo = TensorInfo(shapeCast(/*(srcDims.size() == 5) ? srcDimsReduced :*/ srcDims), 1,
-    precisionToAclDataType(srcDescs[0]->getPrecision()), getAclDataLayoutByMemoryDesc(srcDescs[0])/*arm_compute::DataLayout::NCHW*/);
-    TensorInfo dstTensorInfo = TensorInfo(shapeCast(/*(srcDims.size() == 5) ? dstDimsReduced :*/ dstDims), 1,
-    precisionToAclDataType(dstDescs[0]->getPrecision()), getAclDataLayoutByMemoryDesc(dstDescs[0])/*arm_compute::DataLayout::NCHW*/;
+    TensorInfo srcTensorInfo = TensorInfo(shapeCast(srcDims), 1,
+    precisionToAclDataType(srcDescs[0]->getPrecision()), /*getAclDataLayoutByMemoryDesc(srcDescs[0])*/arm_compute::DataLayout::NCHW);
+    TensorInfo dstTensorInfo = TensorInfo(shapeCast(dstDims), 1,
+    precisionToAclDataType(dstDescs[0]->getPrecision()), /*getAclDataLayoutByMemoryDesc(dstDescs[0])*/arm_compute::DataLayout::NCHW);
 
 
     arm_compute::PoolingLayerInfo pool_info;
-    unsigned int pad_left   = poolingAttrs.data_pad_begin[1];
-    unsigned int pad_right  = poolingAttrs.data_pad_end[1];
-    unsigned int pad_top    = poolingAttrs.data_pad_begin[0];
+    unsigned int pad_left = (poolingAttrs.data_pad_begin.size() == 2) ? poolingAttrs.data_pad_begin[1] : 0;//poolingAttrs.data_pad_begin[0];
+    unsigned int pad_right = (poolingAttrs.data_pad_end.size() == 2) ? poolingAttrs.data_pad_end[1] : 0;//poolingAttrs.data_pad_end[0];
+    unsigned int pad_top = poolingAttrs.data_pad_begin[0];
     unsigned int pad_bottom = poolingAttrs.data_pad_end[0];
-    unsigned int kernel_w   = poolingAttrs.kernel[1];
-    unsigned int kernel_h   = poolingAttrs.kernel[0];
-    unsigned int stride_x   = poolingAttrs.stride[1];
-    unsigned int stride_y   = poolingAttrs.stride[0];
+    unsigned int kernel_w = (poolingAttrs.kernel.size() == 2) ? poolingAttrs.kernel[1] : poolingAttrs.kernel[0];
+    unsigned int kernel_h = poolingAttrs.kernel[0];
+    unsigned int stride_x = (poolingAttrs.stride.size() == 2) ?  poolingAttrs.stride[1] : poolingAttrs.stride[0];
+    unsigned int stride_y = poolingAttrs.stride[0];
 
     arm_compute::DimensionRoundingType round = (poolingAttrs.rounding == op::RoundingType::CEIL) ?
                                                 arm_compute::DimensionRoundingType::CEIL : arm_compute::DimensionRoundingType::FLOOR;
