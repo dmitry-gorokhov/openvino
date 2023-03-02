@@ -7,6 +7,7 @@
 // TODO: remove relative path
 #include "../pooling.hpp"
 #include "arm_compute/runtime/NEON/NEFunctions.h"
+#include "utils/debug_capabilities.h"
 
 namespace ov {
 namespace intel_cpu {
@@ -46,8 +47,8 @@ public:
              dstDescs[0]->getPrecision() != InferenceEngine::Precision::FP32) &&
             (srcDescs[0]->getPrecision() != InferenceEngine::Precision::FP16 &&
              dstDescs[0]->getPrecision() != InferenceEngine::Precision::FP16)) {
-            std::cout << "AclPoolingExecutorBuilder::isSupported - presicion is not supported: src=" <<
-             srcDescs[0]->getPrecision() << "src=" << dstDescs[0]->getPrecision() << std::endl;
+            DEBUG_LOG("AclPoolingExecutor does not support precisions: input precision=",
+                      srcDescs[0]->getPrecision(), " output precision=", dstDescs[0]->getPrecision());
             return false;
         }
 
@@ -55,12 +56,9 @@ public:
               dstDescs[0]->hasLayoutType(LayoutType::ncsp)) &&
             !(srcDescs[0]->hasLayoutType(LayoutType::nspc) &&
               dstDescs[0]->hasLayoutType(LayoutType::nspc))) {
-            std::cout << "AclPoolingExecutorBuilder::isSupported - layout is not supported" <<
-            srcDescs[0]->hasLayoutType(LayoutType::ncsp) << dstDescs[0]->hasLayoutType(LayoutType::ncsp)
-            << srcDescs[0]->hasLayoutType(LayoutType::nspc) << dstDescs[0]->hasLayoutType(LayoutType::nspc) << std::endl;
-            //TODO: understand why hasLayoutType returns false in all 4 cases above 
-              //return false;
-        }
+                DEBUG_LOG("AclPoolingExecutor does not support such layouts");
+                return false;
+              }
 
         return true;
     }

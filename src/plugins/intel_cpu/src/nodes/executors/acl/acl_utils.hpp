@@ -10,7 +10,6 @@ inline VectorDims dimsCast(const VectorDims& dims, size_t requiredSize) {
     if (dims.size() == requiredSize)
         return dims;
     VectorDims returnDims;
-    std::cout << "dimsCast: Original VectorDims: "; for (auto i : dims) std::cout << i << " "; std::cout << std::endl;
     if (dims.size() > requiredSize) {
         Dim dim = dims[0];
         for (int i = 1; i < dims.size() - requiredSize + 1; i++) {
@@ -26,23 +25,18 @@ inline VectorDims dimsCast(const VectorDims& dims, size_t requiredSize) {
             returnDims.push_back(1);
         }
     }
-    std::cout << "dimsCast: Final VectorDims: "; for (auto i : returnDims) std::cout << i << " "; std::cout << std::endl;
     return returnDims;
 }
 
 inline arm_compute::TensorShape shapeCast(const VectorDims& dims) {
     arm_compute::TensorShape tensorShape;
-    std::cout << "shapeCast: after creation VectorDims: "; for (auto i : tensorShape) std::cout << i << " "; std::cout << std::endl;
-    std::cout << "shapeCast: Original VectorDims: "; for (auto i : dims) std::cout << i << " "; std::cout << std::endl;
     for (std::size_t i = 0; i < dims.size(); ++i) {
         tensorShape.set(dims.size() - i - 1, dims[i], false);
-        std::cout << "shapeCast: intermidiate VectorDims: "; for (auto i : tensorShape) std::cout << i << " "; std::cout << std::endl;
     }
     if (tensorShape.num_dimensions() == 0) {
         tensorShape.set(0, 1, false);
         tensorShape.set_num_dimensions(1);
     }
-    std::cout << "shapeCast: Final VectorDims: "; for (auto i : tensorShape) std::cout << i << " "; std::cout << std::endl;
     return tensorShape;
 }
 
