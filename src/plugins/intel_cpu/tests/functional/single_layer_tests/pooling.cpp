@@ -116,15 +116,6 @@ protected:
             poolInput = ngraph::builder::makeFakeQuantize(poolInput, inPrc, 256, newShape);
         }
 
-        std::cout << "creating node in test: " << std::endl;
-        std::cout << "kernel" << CommonTestUtils::vec2str(kernel) << "_";
-        std::cout << "stride" << CommonTestUtils::vec2str(stride) << "_";
-        std::cout << "excludePad" << excludePad << "_";
-        std::cout << "padBegin" << CommonTestUtils::vec2str(padBegin) << "_";
-        std::cout << "padEnd" << CommonTestUtils::vec2str(padEnd) << "_";
-        std::cout << "roundingType=" << roundingType << "_";
-        std::cout << "padType=" << padType << "_";
-
         std::shared_ptr<ngraph::Node> pooling = ngraph::builder::makePooling(poolInput,
                                                                              stride,
                                                                              padBegin,
@@ -202,17 +193,6 @@ protected:
         selectedType = makeSelectedTypeStr(selectedType, inPrc);
 
         init_input_shapes({inputShapes});
-
-        std::cout << "creating MaxPoolingV8 node in test: " << std::endl;
-        std::cout << "kernel" << CommonTestUtils::vec2str(kernel) << "_";
-        std::cout << "stride" << CommonTestUtils::vec2str(stride) << "_";
-        std::cout << "dilation" << CommonTestUtils::vec2str(dilation) << "_";
-        std::cout << "padBegin" << CommonTestUtils::vec2str(padBegin) << "_";
-        std::cout << "padEnd" << CommonTestUtils::vec2str(padEnd) << "_";
-        std::cout << "roundingType=" << roundingType << "_";
-        std::cout << "padType=" << padType << "_";
-        std::cout << "indexElementType=" << indexElementType << "_";
-        std::cout << "axis=" << axis << "_";
 
         auto params = ngraph::builder::makeDynamicParams(inPrc, inputDynamicShapes);
         std::shared_ptr<ngraph::Node> pooling = ngraph::builder::makeMaxPoolingV8(params[0], stride, dilation, padBegin, padEnd,

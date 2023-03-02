@@ -11,8 +11,6 @@
 #include "acl/acl_pooling.hpp"
 #endif
 
-//#include "dnnl/dnnl_matmul.hpp"
-
 namespace ov {
 namespace intel_cpu {
 

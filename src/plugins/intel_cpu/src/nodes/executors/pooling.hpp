@@ -24,7 +24,6 @@ struct PoolingAttrs {
     std::vector<ptrdiff_t> stride;
     std::vector<ptrdiff_t> kernel;
     std::vector<ptrdiff_t> dilation;
-    //ov::Strides dilation;
 
     std::vector<ptrdiff_t> data_pad_begin;
     std::vector<ptrdiff_t> data_pad_end;

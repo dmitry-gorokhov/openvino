@@ -4,19 +4,17 @@
 
 #include "pooling.h"
 
-#include <dnnl_extension_utils.h>
-#include <memory_desc/cpu_memory_desc_utils.h>
-#include <onednn/dnnl.h>
-#include <utils/general_utils.h>
-
-#include <common/primitive_hashing_utils.hpp>
+#include "fake_quantize.h"
+#include "conv.h"
+#include "concat.h"
 #include <string>
 #include <vector>
-
-#include "concat.h"
-#include "conv.h"
-#include "fake_quantize.h"
+#include <onednn/dnnl.h>
+#include <dnnl_extension_utils.h>
+#include <utils/general_utils.h>
+#include <memory_desc/cpu_memory_desc_utils.h>
 #include "memory_desc/dnnl_blocked_memory_desc.h"
+#include <common/primitive_hashing_utils.hpp>
 
 #if defined(OV_CPU_WITH_ACL)
 #    include "executors/acl/acl_utils.hpp"
@@ -553,8 +551,8 @@ dnnl::algorithm Pooling::getPoolingAlgorithm() const {
 
 std::shared_ptr<pooling_v2_forward::desc> Pooling::createDescriptorInternal(
     const dnnl::memory::desc& in_candidate,
-                                                                            const dnnl::memory::desc& out_candidate,
-                                                                            const dnnl::algorithm alg) const {
+    const dnnl::memory::desc& out_candidate,
+    const dnnl::algorithm alg) const {
     return createDescriptorHelper(in_candidate,
                                   out_candidate,
                                   alg,
@@ -669,7 +667,7 @@ void Pooling::initSupportedPrimitiveDescriptors() {
             }
         }
     }
-    }
+}
 
 void Pooling::initDescriptor(const NodeConfig& config) {
     if (useACL)
