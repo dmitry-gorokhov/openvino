@@ -511,7 +511,6 @@ void Pooling::execute(dnnl::stream strm) {
 
         execPtr->exec(srcMemory, dstMemory, postOpsArgs);
     } else {
-        std::cout << "Pooling::execute - ref branch" << std::endl;
         if (prim) {
             (*prim).execute(strm, primArgs);
         }

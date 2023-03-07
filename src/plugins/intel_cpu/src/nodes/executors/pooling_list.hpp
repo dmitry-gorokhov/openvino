@@ -41,22 +41,6 @@ public:
                                         const dnnl::primitive_attr &attr) {
         auto build = [&](const PoolingExecutorDesc* desc) {
             switch (desc->executorType) {
-#if defined(OPENVINO_ARCH_X86_64)
-                case ExecutorType::x64: {
-                    auto builder = [&](const DnnlPoolingExecutor::Key& key) -> PoolingExecutorPtr {
-                        auto executor = desc->builder->makeExecutor(context);
-                        if (executor->init(poolingAttrs, srcDescs, dstDescs, attr)) {
-                            return executor;
-                        } else {
-                            return nullptr;
-                        }
-                    };
-
-                    auto key = DnnlPoolingExecutor::Key(poolingAttrs, srcDescs, dstDescs, attr);
-                    auto res = context->getRuntimeCache()->getOrCreate(key, builder);
-                    return res.first;
-                } break;
-#endif
                 default: {
                     auto executor = desc->builder->makeExecutor(context);
 

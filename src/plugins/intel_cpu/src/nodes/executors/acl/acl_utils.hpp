@@ -6,28 +6,11 @@
 namespace ov {
 namespace intel_cpu {
 
-inline VectorDims dimsCast(const VectorDims& dims, size_t requiredSize) {
-    if (dims.size() == requiredSize)
-        return dims;
-    VectorDims returnDims;
-    if (dims.size() > requiredSize) {
-        Dim dim = dims[0];
-        for (int i = 1; i < dims.size() - requiredSize + 1; i++) {
-            dim *= dims[i];
-        }
-        returnDims.push_back(dim);
-        for (int i = dims.size() - requiredSize + 1; i < dims.size(); i++) {
-            returnDims.push_back(dims[i]);
-        }
-    } else {
-        returnDims = dims;
-        for (int i = dims.size(); i < requiredSize; i++) {
-            returnDims.push_back(1);
-        }
-    }
-    return returnDims;
-}
-
+/**
+* @brief Return ComputeLibrary TensorShape with reverted layout schema used in ACL 
+* @param dims vector of dimensions to convert
+* @return ComputeLibrary TensorShape object
+*/
 inline arm_compute::TensorShape shapeCast(const VectorDims& dims) {
     arm_compute::TensorShape tensorShape;
     for (std::size_t i = 0; i < dims.size(); ++i) {
