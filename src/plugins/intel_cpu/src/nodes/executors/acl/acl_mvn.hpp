@@ -4,8 +4,7 @@
 
 #pragma once
 
-// TODO: remove relative path
-#include "../mvn.hpp"
+#include "nodes/executors/mvn.hpp"
 #include "arm_compute/runtime/NEON/NEFunctions.h"
 
 namespace ov {

@@ -54,7 +54,10 @@ private:
                                                                                const dnnl::algorithm alg) const;
 
     AttrPtr pAttr;
+
     Shape inShape;
+
+    bool isMaxPool8 = false;
     bool useACL = false;
 };
 

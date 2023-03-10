@@ -4,8 +4,7 @@
 
 #pragma once
 
-// TODO: remove relative path
-#include "../pooling.hpp"
+#include "nodes/executors/pooling.hpp"
 #include "arm_compute/runtime/NEON/NEFunctions.h"
 #include "utils/debug_capabilities.h"
 
@@ -29,8 +28,9 @@ public:
     }
 
 private:
+    std::function<void()> exec_func;
     PoolingAttrs poolingAttrs;
-    impl_desc_type implType = impl_desc_type::gemm_acl;
+    impl_desc_type implType = impl_desc_type::acl;
 
     arm_compute::Tensor srcTensor;
     arm_compute::Tensor dstTensor;
@@ -47,18 +47,60 @@ public:
              dstDescs[0]->getPrecision() != InferenceEngine::Precision::FP32) &&
             (srcDescs[0]->getPrecision() != InferenceEngine::Precision::FP16 &&
              dstDescs[0]->getPrecision() != InferenceEngine::Precision::FP16)) {
-            DEBUG_LOG("AclPoolingExecutor does not support precisions: input precision=",
-                      srcDescs[0]->getPrecision(), " output precision=", dstDescs[0]->getPrecision());
+            DEBUG_LOG("AclPoolingExecutor does not support precisions:",
+                      " src[0]=", srcDescs[0]->getPrecision(),
+                      " dst[0]=", dstDescs[0]->getPrecision());
             return false;
         }
 
-        if (!(srcDescs[0]->hasLayoutType(LayoutType::ncsp) &&
-              dstDescs[0]->hasLayoutType(LayoutType::ncsp)) &&
-            !(srcDescs[0]->hasLayoutType(LayoutType::nspc) &&
-              dstDescs[0]->hasLayoutType(LayoutType::nspc))) {
-                DEBUG_LOG("AclPoolingExecutor does not support such layouts");
-                return false;
-              }
+        if (srcDescs.size() == 2 &&
+            (srcDescs[1]->getPrecision() != InferenceEngine::Precision::FP32 &&
+             srcDescs[0]->getPrecision() != InferenceEngine::Precision::FP32 &&
+             dstDescs[0]->getPrecision() != InferenceEngine::Precision::FP32) &&
+            (srcDescs[1]->getPrecision() != InferenceEngine::Precision::FP16 &&
+             srcDescs[0]->getPrecision() != InferenceEngine::Precision::FP16 &&
+             dstDescs[0]->getPrecision() != InferenceEngine::Precision::FP16)) {
+            DEBUG_LOG("AclPoolingExecutor does not support precisions:",
+                      " src[0]=", srcDescs[0]->getPrecision(),
+                      " src[1]=", srcDescs[1]->getPrecision(),
+                      " dst[0]=", dstDescs[0]->getPrecision());
+            return false;
+        }
+
+        if (srcDescs[0]->getShape().getRank() < 5) {
+            if (!(srcDescs[0]->hasLayoutType(LayoutType::ncsp) &&
+                dstDescs[0]->hasLayoutType(LayoutType::ncsp)) &&
+                !(srcDescs[0]->hasLayoutType(LayoutType::nspc) &&
+                dstDescs[0]->hasLayoutType(LayoutType::nspc))) {
+                    DEBUG_LOG("NEPoolingLayer does not support layouts:",
+                    " src=", srcDescs[0]->serializeFormat(),
+                    " dst=", dstDescs[0]->serializeFormat());
+                    return false;
+                }
+            if (srcDescs.size() == 2 &&
+              !(srcDescs[0]->hasLayoutType(LayoutType::ncsp) &&
+                srcDescs[1]->hasLayoutType(LayoutType::ncsp) &&
+                dstDescs[0]->hasLayoutType(LayoutType::ncsp)) &&
+              !(srcDescs[0]->hasLayoutType(LayoutType::nspc) &&
+                srcDescs[1]->hasLayoutType(LayoutType::nspc) &&
+                dstDescs[0]->hasLayoutType(LayoutType::nspc))) {
+                    DEBUG_LOG("NEPoolingLayer does not support layouts:",
+                    " src[0]=", srcDescs[0]->serializeFormat(),
+                    " src[1]=", srcDescs[1]->serializeFormat(),
+                    " dst=", dstDescs[0]->serializeFormat());
+                    return false;
+                }
+        } else {
+            if (!(srcDescs[0]->hasLayoutType(LayoutType::nspc) &&
+                dstDescs[0]->hasLayoutType(LayoutType::nspc)) &&
+                !(srcDescs[0]->hasLayoutType(LayoutType::nspc) &&
+                dstDescs[0]->hasLayoutType(LayoutType::nspc))) {
+                    DEBUG_LOG("Pooling3dLayer does not support layouts:",
+                    " src=", srcDescs[0]->serializeFormat(),
+                    " dst=", dstDescs[0]->serializeFormat());
+                    return false;
+                }
+        }
 
         return true;
     }

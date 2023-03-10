@@ -12,7 +12,6 @@ namespace ov {
 namespace intel_cpu {
 
 struct PoolingAttrs {
-    bool isMaxPool8 = false;
     bool exclude_pad = false;
     bool auto_pad = false;
 

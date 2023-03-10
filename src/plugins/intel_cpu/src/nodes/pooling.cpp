@@ -17,7 +17,8 @@
 #include <common/primitive_hashing_utils.hpp>
 
 #if defined(OV_CPU_WITH_ACL)
-#    include "executors/acl/acl_utils.hpp"
+#include "executors/acl/acl_utils.hpp"
+#include "utils/debug_capabilities.h"
 #endif
 
 using namespace dnnl;
@@ -157,7 +158,7 @@ Pooling::Pooling(const std::shared_ptr<ov::Node>& op, const GraphContext::CPtr c
     };
 
     if (auto maxPoolOp_v8 = ov::as_type_ptr<const ov::op::v8::MaxPool>(op)) {
-        poolingAttrs.isMaxPool8 = true;
+        isMaxPool8 = true;
         algorithm = Algorithm::PoolingMax;
         poolingAttrs.exclude_pad = false;
         poolingAttrs.rounding = maxPoolOp_v8->get_rounding_type();
@@ -267,41 +268,74 @@ void Pooling::getSupportedDescriptors() {
     }
 
     // WA: we may specify any layout here (NCHW or NHWC) since both are supported by ACL
+    arm_compute::DataLayout dataLayout = (parentShape1.getDims().size() == 5) ? arm_compute::DataLayout::NDHWC : arm_compute::DataLayout::NCHW;
     arm_compute::TensorInfo srcTensorInfo = arm_compute::TensorInfo(shapeCast(MemoryDescUtils::makeDummyShape(parentShape1).getDims()),
                                                                     1,
                                                                     precisionToAclDataType(inputPrecision),
-                                                                    arm_compute::DataLayout::NCHW);
+                                                                    dataLayout);
     arm_compute::TensorInfo dstTensorInfo = arm_compute::TensorInfo(shapeCast(MemoryDescUtils::makeDummyShape(childShape1).getDims()),
                                                                     1,
                                                                     precisionToAclDataType(outputPrecision),
-                                                                    arm_compute::DataLayout::NCHW);
-    arm_compute::PoolingLayerInfo pool_info;
-    unsigned int pad_left = (poolingAttrs.data_pad_begin.size() == 2) ? poolingAttrs.data_pad_begin[1] : 0;
-    unsigned int pad_right = (poolingAttrs.data_pad_end.size() == 2) ? poolingAttrs.data_pad_end[1] : 0;
-    unsigned int pad_top = poolingAttrs.data_pad_begin[0];
-    unsigned int pad_bottom = poolingAttrs.data_pad_end[0];
-    unsigned int kernel_w = (poolingAttrs.kernel.size() == 2) ? poolingAttrs.kernel[1] : poolingAttrs.kernel[0];
-    unsigned int kernel_h = poolingAttrs.kernel[0];
-    unsigned int stride_x = (poolingAttrs.stride.size() == 2) ?  poolingAttrs.stride[1] : poolingAttrs.stride[0];
-    unsigned int stride_y = poolingAttrs.stride[0];
+                                                                    dataLayout);
+
+    unsigned int pad_left   = (poolingAttrs.data_pad_begin.size() >= 2) ? poolingAttrs.data_pad_begin[1] : poolingAttrs.data_pad_begin[0];
+    unsigned int pad_right  = (poolingAttrs.data_pad_end.size() >= 2) ?   poolingAttrs.data_pad_end[1]   : poolingAttrs.data_pad_end[0];
+    unsigned int pad_top    = (poolingAttrs.data_pad_begin.size() >= 2) ? poolingAttrs.data_pad_begin[0] : 0;
+    unsigned int pad_bottom = (poolingAttrs.data_pad_end.size() >= 2) ?   poolingAttrs.data_pad_end[0]   : 0;
+    unsigned int kernel_w = (poolingAttrs.kernel.size() >= 2) ? poolingAttrs.kernel[1] : poolingAttrs.kernel[0];
+    unsigned int kernel_h = (poolingAttrs.kernel.size() >= 2) ? poolingAttrs.kernel[0] : 1;
+    unsigned int stride_x = (poolingAttrs.stride.size() >= 2) ? poolingAttrs.stride[1] : poolingAttrs.stride[0];
+    unsigned int stride_y = (poolingAttrs.stride.size() >= 2) ? poolingAttrs.stride[0] : 1;
 
     arm_compute::DimensionRoundingType round = (poolingAttrs.rounding == op::RoundingType::CEIL) ?
                                                 arm_compute::DimensionRoundingType::CEIL : arm_compute::DimensionRoundingType::FLOOR;
-    pool_info.data_layout = arm_compute::DataLayout::NCHW;
-    pool_info.pool_size = arm_compute::Size2D(kernel_w, kernel_h);
-    pool_info.pad_stride_info = arm_compute::PadStrideInfo(stride_x, stride_y, pad_left, pad_right, pad_top, pad_bottom, round);
-    pool_info.exclude_padding = poolingAttrs.exclude_pad;
-    pool_info.pool_type = (poolingAttrs.algorithm == Algorithm::PoolingMax) ? arm_compute::PoolingType::MAX : arm_compute::PoolingType::AVG;
 
-    if (getOriginalOutputsNumber() > 1) {
-        arm_compute::TensorInfo indTensorInfo = arm_compute::TensorInfo(shapeCast(MemoryDescUtils::makeDummyShape(getOutputShapeAtPort(1)).getDims()),
-                                                                        1, arm_compute::DataType::U32, arm_compute::DataLayout::NCHW);
-        if (!arm_compute::NEPoolingLayer::validate(&srcTensorInfo, &dstTensorInfo, pool_info, &indTensorInfo)) {
+    if (parentShape1.getDims().size() == 5) {
+        if (getOriginalOutputsNumber() > 1) {
+            DEBUG_LOG("NEPooling3dLayer does not support indices");
+            useACL = false;
+        } else {
+            unsigned int kernel_d = poolingAttrs.kernel[2];
+            unsigned int stride_z = poolingAttrs.stride[2];
+            unsigned int pad_front = poolingAttrs.data_pad_begin[2];
+            unsigned int pad_back = poolingAttrs.data_pad_end[2];
+            arm_compute::Pooling3dLayerInfo pool_info;
+            pool_info.pool_type = (poolingAttrs.algorithm == Algorithm::PoolingMax) ? arm_compute::PoolingType::MAX : arm_compute::PoolingType::AVG;
+            pool_info.pool_size = arm_compute::Size3D(kernel_w, kernel_h, kernel_d);
+            pool_info.stride = arm_compute::Size3D(stride_x, stride_y, stride_z);
+            pool_info.padding = arm_compute::Padding3D(pad_left, pad_right, pad_top, pad_bottom, pad_front, pad_back);
+            pool_info.exclude_padding = poolingAttrs.exclude_pad;
+            pool_info.round_type = round;
+            arm_compute::Status s = arm_compute::NEPooling3dLayer::validate(&srcTensorInfo, &dstTensorInfo, pool_info);
+            if (!s) {
+                DEBUG_LOG("NEPooling3dLayer validation failed: ", s.error_description());
+                useACL = false;
+            }
+            //FIXME: 5D tensors case is not assigned to ACL because there is no way to check layout here
+            //NEPooling3dLayer supports NDHWC only
             useACL = false;
         }
     } else {
-        if (!arm_compute::NEPoolingLayer::validate(&srcTensorInfo, &dstTensorInfo, pool_info)) {
-            useACL = false;
+        arm_compute::PoolingLayerInfo pool_info;
+        pool_info.data_layout = dataLayout;
+        pool_info.pool_size = arm_compute::Size2D(kernel_w, kernel_h);
+        pool_info.pad_stride_info = arm_compute::PadStrideInfo(stride_x, stride_y, pad_left, pad_right, pad_top, pad_bottom, round);
+        pool_info.exclude_padding = poolingAttrs.exclude_pad;
+        pool_info.pool_type = (poolingAttrs.algorithm == Algorithm::PoolingMax) ? arm_compute::PoolingType::MAX : arm_compute::PoolingType::AVG;
+        if (getOriginalOutputsNumber() > 1) {
+            arm_compute::TensorInfo indTensorInfo = arm_compute::TensorInfo(shapeCast(MemoryDescUtils::makeDummyShape(getOutputShapeAtPort(1)).getDims()),
+                                                                            1, arm_compute::DataType::U32, dataLayout);
+            arm_compute::Status s = arm_compute::NEPoolingLayer::validate(&srcTensorInfo, &dstTensorInfo, pool_info, &indTensorInfo);
+            if (!s) {
+                DEBUG_LOG("NEPoolingLayer validation with indices failed: ", s.error_description());
+                useACL = false;
+            }
+        } else {
+            arm_compute::Status s = arm_compute::NEPoolingLayer::validate(&srcTensorInfo, &dstTensorInfo, pool_info);
+            if (!s) {
+                DEBUG_LOG("NEPoolingLayer validation with indices failed: ", s.error_description());
+                useACL = false;
+            }
         }
     }
 #endif
@@ -620,7 +654,7 @@ void Pooling::initSupportedPrimitiveDescriptors() {
                 srcMemoryDescs,
                 dstMemoryDescs,
                 std::make_shared<ExecutorContext>(context, getPrimitivesPriority()));
-            supportedPrimitiveDescriptors.emplace_back(config, impl_desc_type::ref_any, factory);
+            supportedPrimitiveDescriptors.emplace_back(config, impl_desc_type::undef, factory);
         };
         pushDesc(LayoutType::ncsp);
     } else {
@@ -648,7 +682,7 @@ void Pooling::initSupportedPrimitiveDescriptors() {
                 }
 
             // CPU plugin doesn't support second output of MaxPool-8, but anyway we should have out config for second port as stub
-                if (poolingAttrs.isMaxPool8) {
+                if (isMaxPool8) {
                     auto& creatorsMap = BlockedDescCreator::getCommonCreators();
                     PortConfig dataConfig;
                     dataConfig.inPlace(-1);
@@ -715,7 +749,7 @@ void Pooling::initDescriptor(const NodeConfig& config) {
             }
 
             // CPU plugin doesn't support second output of MaxPool-8, but anyway we should have out config for second port as stub
-            if (poolingAttrs.isMaxPool8) {
+            if (isMaxPool8) {
                 auto& creatorsMap = BlockedDescCreator::getCommonCreators();
                 PortConfig dataConfig;
                 dataConfig.inPlace(-1);

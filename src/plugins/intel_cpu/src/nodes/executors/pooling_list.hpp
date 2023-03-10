@@ -71,20 +71,7 @@ public:
         IE_THROW() << "Supported executor is not found";
     }
 
-    void setEngine(const dnnl::engine& engine) {
-        this->engine = engine;
-    }
-
-    void setScratchPad(const DnnlScratchPadPtr& scratchPad) {
-        this->scratchPad = scratchPad;
-    }
-
 private:
-    // TODO: remove dnnl dependency
-    dnnl::engine engine;
-
-    DnnlScratchPadPtr scratchPad = nullptr;
-
     std::vector<PoolingExecutorDesc> supportedDescs;
     const PoolingExecutorDesc* chosenDesc = nullptr;
 };
