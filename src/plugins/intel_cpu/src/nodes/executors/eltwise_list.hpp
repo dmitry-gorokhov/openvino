@@ -9,6 +9,9 @@
 #include "eltwise.hpp"
 #include "x64/jit_eltwise.hpp"
 #include "common/ref_eltwise.hpp"
+#if defined(OV_CPU_WITH_ACL)
+#include "acl/acl_eltwise.hpp"
+#endif
 
 #include "onednn/iml_type_mapper.h"
 #include "common/primitive_cache.hpp"
@@ -68,7 +71,6 @@ public:
             EltwiseExecutorPtr ptr = nullptr;
             return ptr;
         };
-
 
         if (chosenDesc) {
             if (auto executor = build(chosenDesc)) {

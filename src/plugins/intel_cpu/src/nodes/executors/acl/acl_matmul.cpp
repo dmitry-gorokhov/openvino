@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
+#include "acl_utils.hpp"
 #include "acl_matmul.hpp"
 #include "acl_utils.hpp"
 
@@ -9,14 +10,6 @@ namespace ov {
 namespace intel_cpu {
 
 using namespace arm_compute;
-
-
-inline Dim vectorProduct(const VectorDims& vec, size_t size) {
-    Dim prod = 1;
-    for (size_t i = 0; i < size; ++i)
-        prod *= vec[i];
-    return prod;
-}
 
 AclMatMulExecutor::AclMatMulExecutor(const ExecutorContext::CPtr context) : MatMulExecutor(context) {}
 
