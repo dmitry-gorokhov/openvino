@@ -23,6 +23,16 @@ public:
               const std::vector<MemoryPtr>& dst,
               std::unordered_map<int, MemoryPtr> postOpsArgs) override;
 
+    static bool isSupported(const arm_compute::TensorInfo& srcTensorInfo,
+                            const arm_compute::TensorInfo& dstTensorInfo,
+                            const PoolingAttrs& poolingAttrs,
+                            size_t srcDimsSize,
+                            size_t dstDescsSize,
+                            arm_compute::DataLayout dataLayout,
+                            const VectorDims* indDims,
+                            arm_compute::PoolingLayerInfo* pool_info,
+                            arm_compute::Pooling3dLayerInfo* pool3d_info);
+
     impl_desc_type getImplType() const override {
         return implType;
     }

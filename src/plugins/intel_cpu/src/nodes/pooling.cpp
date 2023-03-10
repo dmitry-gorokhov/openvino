@@ -249,95 +249,36 @@ void Pooling::getSupportedDescriptors() {
     InferenceEngine::Precision inputPrecision = getOriginalInputPrecisionAtPort(0);
     InferenceEngine::Precision outputPrecision = getOriginalOutputPrecisionAtPort(0);
 
+    const auto &parentShape = getInputShapeAtPort(0);
+    const auto &childShape = getOutputShapeAtPort(0);
+    const size_t inputRank = getInputShapeAtPort(0).getRank();
+
 #if defined(OV_CPU_WITH_ACL)
-    useACL = true;
-    const auto &parentShape1 = getInputShapeAtPort(0);
-    const auto &childShape1 = getOutputShapeAtPort(0);
-    auto inShape1 = MemoryDescUtils::makeDummyShape(parentShape1);
-    if (isDynamicNode()) {
-        const auto& origDims = parentShape1.getDims();
-        const auto& origMaxDims = parentShape1.getMaxDims();
-
-        auto inDims = inShape1.getStaticDims();
-        for (size_t i = 0; i < inDims.size() - 2; i++) {
-            if (origDims[i + 2] == Shape::UNDEFINED_DIM) {
-                inDims[i + 2] = std::min<Dim>(origMaxDims[i + 2], std::max<Dim>(inDims[i + 2], poolingAttrs.kernel[i]));
-            }
-        }
-        inShape1 = Shape(inDims);
-    }
-
     // WA: we may specify any layout here (NCHW or NHWC) since both are supported by ACL
-    arm_compute::DataLayout dataLayout = (parentShape1.getDims().size() == 5) ? arm_compute::DataLayout::NDHWC : arm_compute::DataLayout::NCHW;
-    arm_compute::TensorInfo srcTensorInfo = arm_compute::TensorInfo(shapeCast(MemoryDescUtils::makeDummyShape(parentShape1).getDims()),
+    arm_compute::DataLayout dataLayout = (parentShape.getDims().size() == 5) ? arm_compute::DataLayout::NDHWC : arm_compute::DataLayout::NCHW;
+    arm_compute::TensorInfo srcTensorInfo = arm_compute::TensorInfo(shapeCast(parentShape.getDims()),
                                                                     1,
                                                                     precisionToAclDataType(inputPrecision),
                                                                     dataLayout);
-    arm_compute::TensorInfo dstTensorInfo = arm_compute::TensorInfo(shapeCast(MemoryDescUtils::makeDummyShape(childShape1).getDims()),
+    arm_compute::TensorInfo dstTensorInfo = arm_compute::TensorInfo(shapeCast(childShape.getDims()),
                                                                     1,
                                                                     precisionToAclDataType(outputPrecision),
                                                                     dataLayout);
-
-    unsigned int pad_left   = (poolingAttrs.data_pad_begin.size() >= 2) ? poolingAttrs.data_pad_begin[1] : poolingAttrs.data_pad_begin[0];
-    unsigned int pad_right  = (poolingAttrs.data_pad_end.size() >= 2) ?   poolingAttrs.data_pad_end[1]   : poolingAttrs.data_pad_end[0];
-    unsigned int pad_top    = (poolingAttrs.data_pad_begin.size() >= 2) ? poolingAttrs.data_pad_begin[0] : 0;
-    unsigned int pad_bottom = (poolingAttrs.data_pad_end.size() >= 2) ?   poolingAttrs.data_pad_end[0]   : 0;
-    unsigned int kernel_w = (poolingAttrs.kernel.size() >= 2) ? poolingAttrs.kernel[1] : poolingAttrs.kernel[0];
-    unsigned int kernel_h = (poolingAttrs.kernel.size() >= 2) ? poolingAttrs.kernel[0] : 1;
-    unsigned int stride_x = (poolingAttrs.stride.size() >= 2) ? poolingAttrs.stride[1] : poolingAttrs.stride[0];
-    unsigned int stride_y = (poolingAttrs.stride.size() >= 2) ? poolingAttrs.stride[0] : 1;
-
-    arm_compute::DimensionRoundingType round = (poolingAttrs.rounding == op::RoundingType::CEIL) ?
-                                                arm_compute::DimensionRoundingType::CEIL : arm_compute::DimensionRoundingType::FLOOR;
-
-    if (parentShape1.getDims().size() == 5) {
-        if (getOriginalOutputsNumber() > 1) {
-            DEBUG_LOG("NEPooling3dLayer does not support indices");
-            useACL = false;
-        } else {
-            unsigned int kernel_d = poolingAttrs.kernel[2];
-            unsigned int stride_z = poolingAttrs.stride[2];
-            unsigned int pad_front = poolingAttrs.data_pad_begin[2];
-            unsigned int pad_back = poolingAttrs.data_pad_end[2];
-            arm_compute::Pooling3dLayerInfo pool_info;
-            pool_info.pool_type = (poolingAttrs.algorithm == Algorithm::PoolingMax) ? arm_compute::PoolingType::MAX : arm_compute::PoolingType::AVG;
-            pool_info.pool_size = arm_compute::Size3D(kernel_w, kernel_h, kernel_d);
-            pool_info.stride = arm_compute::Size3D(stride_x, stride_y, stride_z);
-            pool_info.padding = arm_compute::Padding3D(pad_left, pad_right, pad_top, pad_bottom, pad_front, pad_back);
-            pool_info.exclude_padding = poolingAttrs.exclude_pad;
-            pool_info.round_type = round;
-            arm_compute::Status s = arm_compute::NEPooling3dLayer::validate(&srcTensorInfo, &dstTensorInfo, pool_info);
-            if (!s) {
-                DEBUG_LOG("NEPooling3dLayer validation failed: ", s.error_description());
-                useACL = false;
-            }
-            //FIXME: 5D tensors case is not assigned to ACL because there is no way to check layout here
-            //NEPooling3dLayer supports NDHWC only
-            useACL = false;
-        }
-    } else {
-        arm_compute::PoolingLayerInfo pool_info;
-        pool_info.data_layout = dataLayout;
-        pool_info.pool_size = arm_compute::Size2D(kernel_w, kernel_h);
-        pool_info.pad_stride_info = arm_compute::PadStrideInfo(stride_x, stride_y, pad_left, pad_right, pad_top, pad_bottom, round);
-        pool_info.exclude_padding = poolingAttrs.exclude_pad;
-        pool_info.pool_type = (poolingAttrs.algorithm == Algorithm::PoolingMax) ? arm_compute::PoolingType::MAX : arm_compute::PoolingType::AVG;
-        if (getOriginalOutputsNumber() > 1) {
-            arm_compute::TensorInfo indTensorInfo = arm_compute::TensorInfo(shapeCast(MemoryDescUtils::makeDummyShape(getOutputShapeAtPort(1)).getDims()),
-                                                                            1, arm_compute::DataType::U32, dataLayout);
-            arm_compute::Status s = arm_compute::NEPoolingLayer::validate(&srcTensorInfo, &dstTensorInfo, pool_info, &indTensorInfo);
-            if (!s) {
-                DEBUG_LOG("NEPoolingLayer validation with indices failed: ", s.error_description());
-                useACL = false;
-            }
-        } else {
-            arm_compute::Status s = arm_compute::NEPoolingLayer::validate(&srcTensorInfo, &dstTensorInfo, pool_info);
-            if (!s) {
-                DEBUG_LOG("NEPoolingLayer validation with indices failed: ", s.error_description());
-                useACL = false;
-            }
-        }
-    }
+    arm_compute::Pooling3dLayerInfo pool3d_info;
+    arm_compute::PoolingLayerInfo pool_info;
+    useACL = AclPoolingExecutor::isSupported(srcTensorInfo,
+                                             dstTensorInfo,
+                                             poolingAttrs,
+                                             parentShape.getDims().size(),
+                                             getOriginalOutputsNumber(),
+                                             dataLayout,
+                                             (getOriginalOutputsNumber() > 1) ? &getOutputShapeAtPort(1).getDims() : nullptr,
+                                             &pool_info,
+                                             &pool3d_info);
+    //FIXME: 5D tensors case is not assigned to ACL because there is no way to check layout here
+    //NEPooling3dLayer supports NDHWC only
+    if (parentShape.getDims().size() == 5)
+        useACL = false;
 #endif
     if (useACL) return;
 
@@ -361,10 +302,6 @@ void Pooling::getSupportedDescriptors() {
 
     auto inputDataType = DnnlExtensionUtils::IEPrecisionToDataType(inputPrecision);
     auto outputDataType = DnnlExtensionUtils::IEPrecisionToDataType(outputPrecision);
-
-    const auto &parentShape = getInputShapeAtPort(0);
-    const auto &childShape = getOutputShapeAtPort(0);
-    const size_t inputRank = getInputShapeAtPort(0).getRank();
 
     if ((inputRank < 3) || (inputRank > 5))
         IE_THROW() << "Pooling layer. Unsupported mode. Only 3D, 4D and 5D blobs are supported as input.";
