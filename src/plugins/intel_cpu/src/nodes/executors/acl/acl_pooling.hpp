@@ -77,6 +77,13 @@ public:
             return false;
         }
 
+        if (dstDescs.size() == 2 &&
+            dstDescs[1]->getPrecision() != InferenceEngine::Precision::U32) {
+            DEBUG_LOG("AclPoolingExecutor does not support precisions:",
+                      " dst[1]=", dstDescs[1]->getPrecision());
+                return false;
+            }
+
         if (srcDescs[0]->getShape().getRank() < 5) {
             if (!(srcDescs[0]->hasLayoutType(LayoutType::ncsp) &&
                 dstDescs[0]->hasLayoutType(LayoutType::ncsp)) &&
