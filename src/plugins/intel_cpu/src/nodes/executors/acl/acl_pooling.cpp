@@ -98,9 +98,9 @@ bool AclPoolingExecutor::init(const PoolingAttrs& poolingAttrs,
     auto dstDims = dstDescs[0]->getShape().getStaticDims();
 
     TensorInfo srcTensorInfo = TensorInfo(shapeCast(srcDims), 1,
-    precisionToAclDataType(srcDescs[0]->getPrecision()), getAclDataLayoutByMemoryDesc(srcDescs[0], true));
+    precisionToAclDataType(srcDescs[0]->getPrecision()), getAclDataLayoutByMemoryDesc(srcDescs[0]));
     TensorInfo dstTensorInfo = TensorInfo(shapeCast(dstDims), 1,
-    precisionToAclDataType(dstDescs[0]->getPrecision()), getAclDataLayoutByMemoryDesc(dstDescs[0], true));
+    precisionToAclDataType(dstDescs[0]->getPrecision()), getAclDataLayoutByMemoryDesc(dstDescs[0]));
 
     srcTensor.allocator()->init(srcTensorInfo);
     dstTensor.allocator()->init(dstTensorInfo);
@@ -113,7 +113,7 @@ bool AclPoolingExecutor::init(const PoolingAttrs& poolingAttrs,
                              poolingAttrs,
                              srcDims.size(),
                              dstDescs.size(),
-                             getAclDataLayoutByMemoryDesc(srcDescs[0], true),
+                             getAclDataLayoutByMemoryDesc(srcDescs[0]),
                              nullptr,
                              nullptr,
                              &pool_info))
@@ -132,14 +132,14 @@ bool AclPoolingExecutor::init(const PoolingAttrs& poolingAttrs,
                              poolingAttrs,
                              srcDims.size(),
                              dstDescs.size(),
-                             getAclDataLayoutByMemoryDesc(srcDescs[0], true),
+                             getAclDataLayoutByMemoryDesc(srcDescs[0]),
                              &dstDescs[1]->getShape().getStaticDims(),
                              &pool_info,
                              nullptr))
                 return false;
             auto indDims = dstDescs[1]->getShape().getStaticDims();
             TensorInfo indTensorInfo = TensorInfo(shapeCast(indDims), 1, precisionToAclDataType(dstDescs[1]->getPrecision()),
-                                                  getAclDataLayoutByMemoryDesc(dstDescs[1], true));
+                                                  getAclDataLayoutByMemoryDesc(dstDescs[1]));
             indTensor.allocator()->init(indTensorInfo);
             exec_func = [this, pool_info]{
                 auto acl_op = std::make_unique<arm_compute::NEPoolingLayer>();
@@ -152,7 +152,7 @@ bool AclPoolingExecutor::init(const PoolingAttrs& poolingAttrs,
                              poolingAttrs,
                              srcDims.size(),
                              dstDescs.size(),
-                             getAclDataLayoutByMemoryDesc(srcDescs[0], true),
+                             getAclDataLayoutByMemoryDesc(srcDescs[0]),
                              nullptr,
                              &pool_info,
                              nullptr))
