@@ -1555,23 +1555,7 @@ bool Node::canFuseSimpleOperation(const NodePtr& node) const {
         }
         return ret;
     } else if (node->getType() == Type::Eltwise) {
-        return one_of(node->getAlgorithm(),
-                      Algorithm::EltwiseRelu,
-                      Algorithm::EltwiseGeluErf,
-                      Algorithm::EltwiseGeluTanh,
-                      Algorithm::EltwiseElu,
-                      Algorithm::EltwiseSigmoid,
-                      Algorithm::EltwiseClamp,
-                      Algorithm::EltwiseTanh,
-                      Algorithm::EltwiseSwish,
-                      Algorithm::EltwiseHswish,
-                      Algorithm::EltwiseMish,
-                      Algorithm::EltwiseHsigmoid,
-                      Algorithm::EltwiseRoundHalfToEven,
-                      Algorithm::EltwiseRoundHalfAwayFromZero,
-                      Algorithm::EltwiseAbs,
-                      Algorithm::EltwiseSqrt,
-                      Algorithm::EltwiseSoftRelu) ||
+        return DnnlExtensionUtils::isUnarySupportedAsPostOp(node->getAlgorithm()) ||
             node->canBePerformedAsScaleShift(this);
     }
     return false;
