@@ -537,13 +537,14 @@ void Convolution::getSupportedDescriptors() {
         if (!enforceBrgconv)
             initTryBrgconvFlag();
         if (one_of(ndims, 3, 4, 5)) {
+            auto inputShape = getInputShapeAtPort(0);
+            auto outputShape = getOutputShapeAtPort(0);
+
+#if defined(OPENVINO_ARCH_X86_64)
             memory::format_tag nspc = ndims == 3 ? memory::format_tag::nwc : (ndims == 4 ? memory::format_tag::nhwc : memory::format_tag::ndhwc);
             memory::format_tag ncsp = ndims == 3 ? memory::format_tag::ncw : (ndims == 4 ? memory::format_tag::nchw : memory::format_tag::ncdhw);
             memory::format_tag nCsp8c = ndims == 3 ? memory::format_tag::nCw8c : (ndims == 4 ? memory::format_tag::nChw8c : memory::format_tag::nCdhw8c);
             memory::format_tag nCsp16c = ndims == 3 ? memory::format_tag::nCw16c : (ndims == 4 ? memory::format_tag::nChw16c : memory::format_tag::nCdhw16c);
-
-            auto inputShape = getInputShapeAtPort(0);
-            auto outputShape = getOutputShapeAtPort(0);
 
             bool acceptedFormat = inputDataType == memory::data_type::bf16;
             bool nspcAdded = false;
@@ -583,6 +584,12 @@ void Convolution::getSupportedDescriptors() {
                 out_candidate = std::make_shared<DnnlBlockedMemoryDesc>(outputShape, outputDataType, nspc);
                 createDescriptor({ in_candidate }, { out_candidate });
             }
+#else
+            memory::format_tag nspc = ndims == 3 ? memory::format_tag::nwc : (ndims == 4 ? memory::format_tag::nhwc : memory::format_tag::ndhwc);
+            in_candidate = std::make_shared<DnnlBlockedMemoryDesc>(inputShape, inputDataType, nspc);
+            out_candidate = std::make_shared<DnnlBlockedMemoryDesc>(outputShape, outputDataType, nspc);
+            createDescriptor({ in_candidate }, { out_candidate });
+#endif
         }
     }
 }
