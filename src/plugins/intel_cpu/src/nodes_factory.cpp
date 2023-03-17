@@ -177,6 +177,7 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(NonMaxSuppression, Type::NonMaxSuppression);
     INTEL_CPU_NODE(ROIPooling, Type::ROIPooling);
     INTEL_CPU_NODE(TopK, Type::TopK);
+    INTEL_CPU_NODE(Proposal, Type::Proposal);
 #if defined(OPENVINO_ARCH_X86_64)
     INTEL_CPU_NODE(GridSample, Type::GridSample);
     INTEL_CPU_NODE(DeformableConvolution, Type::DeformableConvolution);
@@ -193,7 +194,6 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(MHA, Type::MHA);
     INTEL_CPU_NODE(ExtractImagePatches, Type::ExtractImagePatches);
     INTEL_CPU_NODE(FakeQuantize, Type::FakeQuantize);
-    INTEL_CPU_NODE(Proposal, Type::Proposal); //
     INTEL_CPU_NODE(ShuffleChannels, Type::ShuffleChannels);
     INTEL_CPU_NODE(SpaceToDepth, Type::SpaceToDepth);
     INTEL_CPU_NODE(Snippet, Type::Subgraph);
