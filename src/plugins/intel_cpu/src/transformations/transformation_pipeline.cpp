@@ -92,14 +92,7 @@
 #include "transformations/cpu_opset/x64/pass/mha_fusion.hpp"
 #include "transformations/cpu_opset/x64/pass/convert_to_interaction.hpp"
 #include "transformations/cpu_opset/arm/pass/convert_reduce_multi_axis.hpp"
-<<<<<<< HEAD
-<<<<<<< HEAD
 #include "transformations/cpu_opset/arm/pass/mish_decomposition.hpp"
-=======
-#include "transformations/cpu_opset/arm/pass/convert_eltwise_broadcasting.hpp"
->>>>>>> eef6063cb8... temp
-=======
->>>>>>> 0d8ecd5090... enable broadcast
 #include "transformations/cpu_opset/common/pass/convert_fq_rnn_to_quantized_rnn.hpp"
 #include "transformations/cpu_opset/common/pass/move_eltwise_up_data_movement.hpp"
 #include "transformations/cpu_opset/common/pass/swap_convert_transpose.hpp"
