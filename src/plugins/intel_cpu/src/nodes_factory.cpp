@@ -176,8 +176,8 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(Gather, Type::Gather);
     INTEL_CPU_NODE(NonMaxSuppression, Type::NonMaxSuppression);
     INTEL_CPU_NODE(ROIPooling, Type::ROIPooling);
-#if defined(OPENVINO_ARCH_X86_64)
     INTEL_CPU_NODE(TopK, Type::TopK);
+#if defined(OPENVINO_ARCH_X86_64)
     INTEL_CPU_NODE(GridSample, Type::GridSample);
     INTEL_CPU_NODE(DeformableConvolution, Type::DeformableConvolution);
     INTEL_CPU_NODE(DepthToSpace, Type::DepthToSpace);
