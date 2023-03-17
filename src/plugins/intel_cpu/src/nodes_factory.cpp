@@ -173,8 +173,8 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(Eye, Type::Eye);
     INTEL_CPU_NODE(Unique, Type::Unique);
     INTEL_CPU_NODE(Reduce, Type::Reduce);
-#if defined(OPENVINO_ARCH_X86_64)
     INTEL_CPU_NODE(Gather, Type::Gather);
+#if defined(OPENVINO_ARCH_X86_64)
     INTEL_CPU_NODE(GridSample, Type::GridSample);
     INTEL_CPU_NODE(DeformableConvolution, Type::DeformableConvolution);
     INTEL_CPU_NODE(DepthToSpace, Type::DepthToSpace);
