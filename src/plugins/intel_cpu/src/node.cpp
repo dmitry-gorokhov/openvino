@@ -1294,6 +1294,7 @@ Node* Node::NodesFactory::create(const std::shared_ptr<ngraph::Node>& op, const 
 }
 
 bool Node::canBePerformedAsScaleShift(const Node *parentNode) const {
+#if defined(OPENVINO_ARCH_X86_64)
     IE_ASSERT(parentNode);
 
     size_t fusingPort = 0;
@@ -1344,6 +1345,10 @@ bool Node::canBePerformedAsScaleShift(const Node *parentNode) const {
                                    Algorithm::EltwisePrelu,
                                    Algorithm::EltwiseMulAdd) && isBroadcastableToDataInput())
             || isConvertablePowerStatic();
+#else
+    // TODO: provide correct list of operations for other backends
+    return false;
+#endif
 }
 
 // @todo shifts for Subtract and scales for Divide are replaced with
