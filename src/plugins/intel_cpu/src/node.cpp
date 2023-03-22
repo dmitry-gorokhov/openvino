@@ -932,6 +932,9 @@ void Node::cleanup() {
 const std::vector<impl_desc_type>& Node::getPrimitivesPriority() {
     std::vector<impl_desc_type> priorities = {
             impl_desc_type::unknown,
+            // Undef impl type is used to express use-cases there real type is unkown during compilation
+            // Undef has higher priority than defined types in order to force primitive selection logic to make decision based on other properties
+            impl_desc_type::undef,
             impl_desc_type::brgconv_avx512_amx_1x1,
             impl_desc_type::brgconv_avx512_amx,
             impl_desc_type::jit_avx512_amx_dw,
@@ -961,6 +964,7 @@ const std::vector<impl_desc_type>& Node::getPrimitivesPriority() {
             impl_desc_type::gemm_avx2,
             impl_desc_type::gemm_avx,
             impl_desc_type::gemm_sse42,
+            impl_desc_type::acl,
             impl_desc_type::jit_gemm,
             impl_desc_type::ref_any,
             impl_desc_type::ref,
