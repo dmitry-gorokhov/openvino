@@ -172,6 +172,7 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(PriorBoxClustered, Type::PriorBoxClustered);
     INTEL_CPU_NODE(Eye, Type::Eye);
     INTEL_CPU_NODE(Unique, Type::Unique);
+    INTEL_CPU_NODE(Interpolate, Type::Interpolate);
     INTEL_CPU_NODE(Reduce, Type::Reduce);
     INTEL_CPU_NODE(Gather, Type::Gather);
     INTEL_CPU_NODE(NonMaxSuppression, Type::NonMaxSuppression);
@@ -187,7 +188,6 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(ColorConvert, Type::ColorConvert);
     INTEL_CPU_NODE(NormalizeL2, Type::NormalizeL2);
     INTEL_CPU_NODE(BinaryConvolution, Type::BinaryConvolution);
-    INTEL_CPU_NODE(Interpolate, Type::Interpolate);
     INTEL_CPU_NODE(ROIAlign, Type::ROIAlign);
     INTEL_CPU_NODE(RegionYolo, Type::RegionYolo);
     INTEL_CPU_NODE(Interaction, Type::Interaction);
