@@ -171,6 +171,7 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(StridedSlice, Type::StridedSlice);
     INTEL_CPU_NODE(GRN, Type::GRN);
     INTEL_CPU_NODE(NonZero, Type::NonZero);
+    INTEL_CPU_NODE(NormalizeL2, Type::NormalizeL2);
     INTEL_CPU_NODE(PriorBox, Type::PriorBox);
     INTEL_CPU_NODE(PriorBoxClustered, Type::PriorBoxClustered);
     INTEL_CPU_NODE(Eye, Type::Eye);
@@ -188,7 +189,6 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(ExtractImagePatches, Type::ExtractImagePatches);
 #if defined(OPENVINO_ARCH_X86_64)
     INTEL_CPU_NODE(GridSample, Type::GridSample);
-    INTEL_CPU_NODE(NormalizeL2, Type::NormalizeL2);
     INTEL_CPU_NODE(BinaryConvolution, Type::BinaryConvolution);
     INTEL_CPU_NODE(ROIAlign, Type::ROIAlign);
     INTEL_CPU_NODE(Interaction, Type::Interaction);
