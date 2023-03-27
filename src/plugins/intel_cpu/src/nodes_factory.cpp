@@ -108,6 +108,7 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(SpaceToBatch, Type::SpaceToBatch);
     INTEL_CPU_NODE(Lrn, Type::Lrn);
     INTEL_CPU_NODE(BatchToSpace, Type::BatchToSpace);
+    INTEL_CPU_NODE(DepthToSpace, Type::DepthToSpace);
     INTEL_CPU_NODE(If, Type::If);
     INTEL_CPU_NODE(Broadcast, Type::Broadcast);
     INTEL_CPU_NODE(ExperimentalDetectronTopKROIs, Type::ExperimentalDetectronTopKROIs);
@@ -185,7 +186,6 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(ExtractImagePatches, Type::ExtractImagePatches);
 #if defined(OPENVINO_ARCH_X86_64)
     INTEL_CPU_NODE(GridSample, Type::GridSample);
-    INTEL_CPU_NODE(DepthToSpace, Type::DepthToSpace);
     INTEL_CPU_NODE(DFT, Type::DFT);
     INTEL_CPU_NODE(ColorConvert, Type::ColorConvert);
     INTEL_CPU_NODE(NormalizeL2, Type::NormalizeL2);
