@@ -163,6 +163,7 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(ScatterUpdate, Type::ScatterUpdate);
     INTEL_CPU_NODE(ScatterUpdate, Type::ScatterElementsUpdate);
     INTEL_CPU_NODE(ScatterUpdate, Type::ScatterNDUpdate);
+    INTEL_CPU_NODE(ShuffleChannels, Type::ShuffleChannels);
     INTEL_CPU_NODE(TensorIterator, Type::TensorIterator);
     INTEL_CPU_NODE(Concat, Type::Concatenation);
     INTEL_CPU_NODE(OneHot, Type::OneHot);
@@ -194,7 +195,6 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(GridSample, Type::GridSample);
     INTEL_CPU_NODE(Interaction, Type::Interaction);
     INTEL_CPU_NODE(MHA, Type::MHA);
-    INTEL_CPU_NODE(ShuffleChannels, Type::ShuffleChannels);
     INTEL_CPU_NODE(SpaceToDepth, Type::SpaceToDepth);
     INTEL_CPU_NODE(Snippet, Type::Subgraph);
 #endif
