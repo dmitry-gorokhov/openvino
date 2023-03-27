@@ -127,6 +127,7 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(Tile, Type::Tile);
     INTEL_CPU_NODE(GatherTree, Type::GatherTree);
     INTEL_CPU_NODE(FullyConnected, Type::FullyConnected);
+    INTEL_CPU_NODE(FakeQuantize, Type::FakeQuantize);
     INTEL_CPU_NODE(CTCGreedyDecoder, Type::CTCGreedyDecoder);
     INTEL_CPU_NODE(Transpose, Type::Transpose);
     INTEL_CPU_NODE(ReorgYolo, Type::ReorgYolo);
@@ -193,7 +194,6 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(GridSample, Type::GridSample);
     INTEL_CPU_NODE(Interaction, Type::Interaction);
     INTEL_CPU_NODE(MHA, Type::MHA);
-    INTEL_CPU_NODE(FakeQuantize, Type::FakeQuantize);
     INTEL_CPU_NODE(ShuffleChannels, Type::ShuffleChannels);
     INTEL_CPU_NODE(SpaceToDepth, Type::SpaceToDepth);
     INTEL_CPU_NODE(Snippet, Type::Subgraph);
