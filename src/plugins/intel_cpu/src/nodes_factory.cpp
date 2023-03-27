@@ -110,6 +110,7 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(Lrn, Type::Lrn);
     INTEL_CPU_NODE(BatchToSpace, Type::BatchToSpace);
     INTEL_CPU_NODE(DepthToSpace, Type::DepthToSpace);
+    INTEL_CPU_NODE(SpaceToDepth, Type::SpaceToDepth);
     INTEL_CPU_NODE(If, Type::If);
     INTEL_CPU_NODE(Broadcast, Type::Broadcast);
     INTEL_CPU_NODE(ExperimentalDetectronTopKROIs, Type::ExperimentalDetectronTopKROIs);
@@ -195,7 +196,6 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(GridSample, Type::GridSample);
     INTEL_CPU_NODE(Interaction, Type::Interaction);
     INTEL_CPU_NODE(MHA, Type::MHA);
-    INTEL_CPU_NODE(SpaceToDepth, Type::SpaceToDepth);
     INTEL_CPU_NODE(Snippet, Type::Subgraph);
 #endif
 }
