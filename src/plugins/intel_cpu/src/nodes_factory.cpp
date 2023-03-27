@@ -105,6 +105,7 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(Generic, Type::Generic);
     INTEL_CPU_NODE(CumSum, Type::CumSum);
     INTEL_CPU_NODE(Convolution, Type::Convolution);
+    INTEL_CPU_NODE(BinaryConvolution, Type::BinaryConvolution);
     INTEL_CPU_NODE(SpaceToBatch, Type::SpaceToBatch);
     INTEL_CPU_NODE(Lrn, Type::Lrn);
     INTEL_CPU_NODE(BatchToSpace, Type::BatchToSpace);
@@ -189,7 +190,6 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(ExtractImagePatches, Type::ExtractImagePatches);
 #if defined(OPENVINO_ARCH_X86_64)
     INTEL_CPU_NODE(GridSample, Type::GridSample);
-    INTEL_CPU_NODE(BinaryConvolution, Type::BinaryConvolution);
     INTEL_CPU_NODE(ROIAlign, Type::ROIAlign);
     INTEL_CPU_NODE(Interaction, Type::Interaction);
     INTEL_CPU_NODE(MHA, Type::MHA);
