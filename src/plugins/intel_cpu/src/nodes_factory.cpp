@@ -182,6 +182,7 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(Gather, Type::Gather);
     INTEL_CPU_NODE(NonMaxSuppression, Type::NonMaxSuppression);
     INTEL_CPU_NODE(ROIPooling, Type::ROIPooling);
+    INTEL_CPU_NODE(ROIAlign, Type::ROIAlign);
     INTEL_CPU_NODE(TopK, Type::TopK);
     INTEL_CPU_NODE(Proposal, Type::Proposal);
     INTEL_CPU_NODE(RegionYolo, Type::RegionYolo);
@@ -190,7 +191,6 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(ExtractImagePatches, Type::ExtractImagePatches);
 #if defined(OPENVINO_ARCH_X86_64)
     INTEL_CPU_NODE(GridSample, Type::GridSample);
-    INTEL_CPU_NODE(ROIAlign, Type::ROIAlign);
     INTEL_CPU_NODE(Interaction, Type::Interaction);
     INTEL_CPU_NODE(MHA, Type::MHA);
     INTEL_CPU_NODE(FakeQuantize, Type::FakeQuantize);
