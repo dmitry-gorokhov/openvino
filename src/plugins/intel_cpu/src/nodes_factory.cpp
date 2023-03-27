@@ -151,6 +151,7 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(Math, Type::Math);
     INTEL_CPU_NODE(MultiClassNms, Type::MulticlassNms);
     INTEL_CPU_NODE(Convert, Type::Convert);
+    INTEL_CPU_NODE(ColorConvert, Type::ColorConvert);
     INTEL_CPU_NODE(EmbeddingBagOffsetSum, Type::EmbeddingBagOffsetsSum);
     INTEL_CPU_NODE(Roll, Type::Roll);
     INTEL_CPU_NODE(Pad, Type::Pad);
@@ -187,7 +188,6 @@ Node::NodesFactory::NodesFactory()
     INTEL_CPU_NODE(ExtractImagePatches, Type::ExtractImagePatches);
 #if defined(OPENVINO_ARCH_X86_64)
     INTEL_CPU_NODE(GridSample, Type::GridSample);
-    INTEL_CPU_NODE(ColorConvert, Type::ColorConvert);
     INTEL_CPU_NODE(NormalizeL2, Type::NormalizeL2);
     INTEL_CPU_NODE(BinaryConvolution, Type::BinaryConvolution);
     INTEL_CPU_NODE(ROIAlign, Type::ROIAlign);
