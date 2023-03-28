@@ -159,6 +159,11 @@ void Config::readProperties(const std::map<std::string, std::string> &prop) {
                 lpTransformsMode = LPTransformsMode::On;
             else
                 IE_THROW() << "Wrong value for property key " << PluginConfigInternalParams::KEY_LP_TRANSFORMS_MODE;
+        } else if (key == ov::device::id.name()) {
+            device_id = val;
+            if (!device_id.empty()) {
+                IE_THROW() << "CPU plugin supports only '' as device id";
+            }
         } else if (key == PluginConfigParams::KEY_ENFORCE_BF16) {
             if (val == PluginConfigParams::YES) {
                 if (mayiuse(avx512_core)) {
@@ -219,10 +224,13 @@ void Config::readProperties(const std::map<std::string, std::string> &prop) {
                 IE_THROW() << "Wrong value for property key " << PluginConfigInternalParams::KEY_SNIPPETS_MODE
                             << ". Expected values: ENABLE/DISABLE/IGNORE_CALLBACK";
         } else if (key == ov::hint::execution_mode.name()) {
-            if (val == "PERFORMANCE" || val == "UNDEFINED") {
+            if (val == "PERFORMANCE") {
                 executionMode = ov::hint::ExecutionMode::PERFORMANCE;
-            } else {
+            } else if (val == "ACCURACY") {
                 executionMode = ov::hint::ExecutionMode::ACCURACY;
+            } else {
+                IE_THROW() << "Wrong value for property key " << ov::hint::execution_mode.name()
+                    << ". Supported values: PERFORMANCE, ACCURACY";
             }
         } else {
             IE_THROW(NotFound) << "Unsupported property " << key << " by CPU plugin";
