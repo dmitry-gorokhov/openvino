@@ -29,15 +29,16 @@ enum impl_desc_type {
     any    = 1<<18,
     uni    = 1<<19,
     acl    = 1<<20,
+    sve    = 1<<21,
     // Other specificator
-    _1x1    = 1<<21,
-    _dw     = 1<<22,
+    _1x1    = 1<<22,
+    _dw     = 1<<23,
     // Other info
-    reorder = 1<<23,
+    reorder = 1<<24,
     // winograd
-    winograd = 1<<24,
+    winograd = 1<<25,
     // sparse
-    sparse = 1<<25,
+    sparse = 1<<26,
 
     // real types
     ref_any             = ref  | any,
@@ -97,6 +98,8 @@ enum impl_desc_type {
     dw_acl             = _dw | acl,
     gemm_acl           = gemm | acl,
     winograd_acl       = winograd | acl,
+
+    jit_sve            = jit | sve,
 };
 
 const char * impl_type_to_string(impl_desc_type type);

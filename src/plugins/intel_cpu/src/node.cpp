@@ -456,6 +456,7 @@ std::string Node::getPrimitiveDescriptorType() {
     SEARCH_TYPE(winograd);
     SEARCH_TYPE(sparse);
     SEARCH_TYPE(acl);
+    SEARCH_TYPE(sve);
     SEARCH_TYPE(_dw);
     SEARCH_TYPE(_1x1);
 
@@ -977,6 +978,7 @@ const std::vector<impl_desc_type>& Node::getPrimitivesPriority() {
             // Undef impl type is used to express use-cases there real type is unkown during compilation
             // Undef has higher priority than defined types in order to force primitive selection logic to make decision based on other properties
             impl_desc_type::undef,
+            impl_desc_type::jit_sve,
             impl_desc_type::brgconv_avx512_amx_1x1,
             impl_desc_type::brgconv_avx512_amx,
             impl_desc_type::jit_avx512_amx_dw,
