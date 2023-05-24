@@ -493,9 +493,7 @@ void Convolution::getSupportedDescriptors() {
 
     if (canBeExecutedInInt8()) {
         DEBUG_LOG(getName(), "Creating I8 descriptor");
-        // initTryBrgconvFlag depends on outputDataType, should be after outputDataType computed
-        if (!enforceBrgconv)
-            initTryBrgconvFlag();
+
         SetPostOpsAndZeroPoints(attrs);
 
         // so far oneDNN INT8 convolution only support s8,u8,s32,f32,bf16 output types
@@ -899,7 +897,8 @@ void Convolution::createDescriptor(const std::vector<MemoryDescPtr>& inputDesc,
     dnnl::memory::desc biasDnnlDesc;
 
     if (withBiases) {
-        memory::data_type bdt = memory::data_type::f32;
+        // memory::data_type bdt = memory::data_type::f32;
+        memory::data_type bdt = outDnnlDesc.get_data_type();
         biasDnnlDesc = dnnl::memory::desc(DnnlExtensionUtils::convertToDnnlDims(biasesDims), bdt, memory::format_tag::any);
     }
 

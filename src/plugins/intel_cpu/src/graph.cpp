@@ -1686,21 +1686,21 @@ void Graph::EnforceInferencePrecision() {
             }
 #endif
             if (inferPrec == InferenceEngine::Precision::FP16 && !one_of(node->getType(),
-                                                                         Type::Reorder,
+                                                                        //  Type::Reorder,
                                                                          Type::Convolution,
-                                                                         Type::Deconvolution,
-                                                                         Type::FullyConnected,
-                                                                         Type::MatMul,
-                                                                         Type::Pooling,
-                                                                         Type::Pad,
-                                                                         Type::Transpose,
-                                                                         Type::Eltwise,
-                                                                         Type::Subgraph,
-                                                                         Type::MVN,
-                                                                         Type::Softmax,
-                                                                         Type::Reshape,
-                                                                         Type::Gather,
-                                                                         Type::Split))
+                                                                        //  Type::Deconvolution,
+                                                                        //  Type::FullyConnected,
+                                                                        //  Type::MatMul,
+                                                                         Type::Pooling))
+                                                                        //  Type::Pad,
+                                                                        //  Type::Transpose,
+                                                                        //  Type::Eltwise,
+                                                                        //  Type::Subgraph,
+                                                                        //  Type::MVN,
+                                                                        //  Type::Softmax,
+                                                                        //  Type::Reshape,
+                                                                        //  Type::Gather,
+                                                                        //  Type::Split))
                 continue;
 
             DEBUG_LOG("#", node->getExecIndex(),
