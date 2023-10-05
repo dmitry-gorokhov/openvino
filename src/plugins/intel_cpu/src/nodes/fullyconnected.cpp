@@ -208,7 +208,7 @@ void FullyConnected::getSupportedDescriptors() {
     useSparseWeights = useSparseWeightsDecompression();
     useWeightsDecompressionImpl = dnnl::impl::cpu::x64::mayiuse(dnnl::impl::cpu::x64::avx2) &&
                                   one_of(inputDataType, memory::data_type::f32, memory::data_type::bf16) &&
-                                  weightsDataType == memory::data_type::u8;
+                                  one_of(weightsDataType, memory::data_type::u8, memory::data_type::nf4);
 
     // revert back outputDataType on special cases
     if (inputDataType == memory::data_type::f32) {

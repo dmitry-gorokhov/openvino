@@ -399,9 +399,9 @@ void GraphOptimizer::FuseFCAndWeightsDecompression(Graph &graph) {
         }
 
         // Fusion processing
-        fcNode->fuseDecompressionMultiply(multiplyConstNode);
+        fcNode->fuseDecompressionMultiplyPtr(multiplyConstNode);
         if (withSubtract)
-            fcNode->fuseDecompressionSubtract(subtractConstNode);
+            fcNode->fuseDecompressionSubtractPtr(subtractConstNode);
 
         fcNode->addOriginalLayer(multiplyNode->getOriginalLayers());
         fcNode->addOriginalLayer(convertNode->getOriginalLayers());

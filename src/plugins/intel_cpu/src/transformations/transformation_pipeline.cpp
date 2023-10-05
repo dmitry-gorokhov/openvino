@@ -211,8 +211,7 @@ void Transformations::PreLpt(const std::vector<ov::element::Type>& defaultPrecis
         CPU_REGISTER_PASS_COMMON(manager, ov::pass::TransposeMatMul);
         const ov::element::TypeVector decompression_precisions{
             ov::element::u8,
-            // TODO: Uncomment when group decompression is supported
-            // ov::element::nf4
+            ov::element::nf4
         };
         // MarkDequantizationSubgraph is used even in non-LPT pipeline on X64 platforms
         // in order to keep compressed MatMul weights with decompression operations as is
@@ -231,14 +230,12 @@ void Transformations::PreLpt(const std::vector<ov::element::Type>& defaultPrecis
 
             if (ov::is_type<ov::opset1::MatMul>(consumer)) {
                 return false;
+            } else if (ov::is_type<ov::opset1::Reshape>(consumer)) {
+                consumer = get_single_consumer(consumer);
+                if (consumer != nullptr && ov::is_type<ov::opset1::MatMul>(consumer)) {
+                    return false;
+                }
             }
-            // TODO: Uncomment when group decompression is supported
-            // else if (ov::is_type<ov::opset1::Reshape>(consumer)) {
-            //     consumer = get_single_consumer(consumer);
-            //     if (consumer != nullptr && ov::is_type<ov::opset1::MatMul>(consumer)) {
-            //         return false;
-            //     }
-            // }
             return true;
         }, ov::pass::MarkDequantizationSubgraph);
     }

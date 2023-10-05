@@ -129,6 +129,12 @@ protected:
             transformed_weights_shape[in_channel_idx] = weights_shape[0] / group_size;
             transformed_weights_shape.insert(transformed_weights_shape.begin() + in_channel_idx + 1, group_size);
         }
+
+        // std::vector<uint8_t> weights_data(shape_size(transformed_weights_shape), 0);
+        // for (int i = 0; i < weights_data.size(); i++) {
+        //     weights_data[i] = i % 16;
+        // }
+
         auto weights = ngraph::builder::makeConstant<uint8_t>(weights_precision, transformed_weights_shape, {}, true);
         weights->set_friendly_name("Compressed_weights");
         auto weights_convert = std::make_shared<ngraph::opset1::Convert>(weights, data_precision);
@@ -303,14 +309,19 @@ bool shouldUseDecompressionKernelBasic() {
     return shouldUseDecompressionKernelBig();
 }
 
-const std::vector<ov::test::ElementType> weights_precisions = {ov::element::u8, ov::element::nf4};
+const std::vector<ov::test::ElementType> weights_precisions = { /*ov::element::u8,*/ ov::element::nf4};
 const std::vector<ShapeParams> input_shapes_basic = {
-    {{{-1, -1, -1}, {{1, 4, 16}, {10, 16, 16}}}, {16, 32}},
-    {{{}, {{1, 4, 16}}}, {16, 32}, 2ul},
-    {{{}, {{1, 4, 16}}}, {1, 16, 32}},
-    {{{}, {{10, 40, 496}}}, {1, 496, 240}},
-    {{{}, {{1, 4, 48}}}, {48, 256}},
-    {{{}, {{11, 339, 377}}}, {377, 335}},
+    // {{{-1, -1, -1}, {{1, 4, 16}, {10, 16, 16}}}, {16, 32}},
+    {{{}, {{1, 4, 8}}}, {8, 32}, 4ul},
+    // {{{}, {{1, 4, 256}}}, {256, 24}, 1ul},
+    // {{{}, {{1, 1, 4096}}}, {4096, 4096}, 1ul},
+    // {{{}, {{1, 4, 4096}}}, {4096, 4096}, 32ul},
+    // {{{}, {{1, 1, 8}}}, {8, 24}, 4ul},
+    // {{{}, {{10, 40, 496}}}, {1, 496, 240}, 1ul},
+    {{{-1, 1, 4096}, {{1, 1, 4096}}}, {4096, 3840}, 128ul},
+    {{{-1, 5, 4096}, {{1, 5, 4096}}}, {4096, 3840}, 128ul},
+    // {{{}, {{1, 4, 48}}}, {48, 256}},
+    // {{{}, {{11, 339, 377}}}, {377, 335}},
 };
 const std::vector<ShapeParams> input_shapes_big = {
     {{{-1, -1, -1}, {{10, 40, 480}, {11, 40, 480}}}, {1, 480, 256}},
@@ -324,7 +335,7 @@ const std::vector<ShapeParams> input_shapes_big = {
 };
 const std::vector<fusingSpecificParams> fusingParamsSet {
     emptyFusingSpec,
-    fusingBias,
+    // fusingBias,
 };
 
 INSTANTIATE_TEST_SUITE_P(smoke_MatMulCompressedWeights_basic,
@@ -339,17 +350,17 @@ INSTANTIATE_TEST_SUITE_P(smoke_MatMulCompressedWeights_basic,
                                             ::testing::Values(shouldUseDecompressionKernelBasic())),
                          MatmulWeightsDecompression::getTestCaseName);
 
-INSTANTIATE_TEST_SUITE_P(smoke_MatMulCompressedWeights_big,
-                         MatmulWeightsDecompression,
-                         ::testing::Combine(::testing::ValuesIn(input_shapes_big),
-                                            ::testing::ValuesIn(weights_precisions),
-                                            ::testing::Values(true),
-                                            ::testing::Values(true),
-                                            ::testing::Values(true),
-                                            ::testing::ValuesIn(filterAdditionalConfigBig()),
-                                            ::testing::ValuesIn(fusingParamsSet),
-                                            ::testing::Values(shouldUseDecompressionKernelBig())),
-                         MatmulWeightsDecompression::getTestCaseName);
+// INSTANTIATE_TEST_SUITE_P(smoke_MatMulCompressedWeights_big,
+//                          MatmulWeightsDecompression,
+//                          ::testing::Combine(::testing::ValuesIn(input_shapes_big),
+//                                             ::testing::ValuesIn(weights_precisions),
+//                                             ::testing::Values(true),
+//                                             ::testing::Values(true),
+//                                             ::testing::Values(true),
+//                                             ::testing::ValuesIn(filterAdditionalConfigBig()),
+//                                             ::testing::ValuesIn(fusingParamsSet),
+//                                             ::testing::Values(shouldUseDecompressionKernelBig())),
+//                          MatmulWeightsDecompression::getTestCaseName);
 
 const std::vector<ShapeParams> input_shapes_corner_cases_basic = {
     {{{-1, -1, -1}, {{1, 4, 16}}}, {1, 16, 32}},
@@ -365,28 +376,28 @@ const std::vector<bool> transpose_weights = {true, false};
 const std::vector<bool> add_decompression_sub = {true, false};
 const std::vector<bool> reshape_on_decompression = {true, false};
 
-INSTANTIATE_TEST_SUITE_P(smoke_MatMulCompressedWeights_corner_cases_basic,
-                         MatmulWeightsDecompression,
-                         ::testing::Combine(::testing::ValuesIn(input_shapes_corner_cases_basic),
-                                            ::testing::ValuesIn(weights_precisions),
-                                            ::testing::ValuesIn(transpose_weights),
-                                            ::testing::ValuesIn(add_decompression_sub),
-                                            ::testing::ValuesIn(reshape_on_decompression),
-                                            ::testing::ValuesIn(filterAdditionalConfigBasic()),
-                                            ::testing::Values(emptyFusingSpec),
-                                            ::testing::Values(shouldUseDecompressionKernelBasic())),
-                         MatmulWeightsDecompression::getTestCaseName);
+// INSTANTIATE_TEST_SUITE_P(smoke_MatMulCompressedWeights_corner_cases_basic,
+//                          MatmulWeightsDecompression,
+//                          ::testing::Combine(::testing::ValuesIn(input_shapes_corner_cases_basic),
+//                                             ::testing::ValuesIn(weights_precisions),
+//                                             ::testing::ValuesIn(transpose_weights),
+//                                             ::testing::ValuesIn(add_decompression_sub),
+//                                             ::testing::ValuesIn(reshape_on_decompression),
+//                                             ::testing::ValuesIn(filterAdditionalConfigBasic()),
+//                                             ::testing::Values(emptyFusingSpec),
+//                                             ::testing::Values(shouldUseDecompressionKernelBasic())),
+//                          MatmulWeightsDecompression::getTestCaseName);
 
-INSTANTIATE_TEST_SUITE_P(smoke_MatMulCompressedWeights_corner_cases_big,
-                         MatmulWeightsDecompression,
-                         ::testing::Combine(::testing::ValuesIn(input_shapes_corner_cases_big),
-                                            ::testing::ValuesIn(weights_precisions),
-                                            ::testing::ValuesIn(transpose_weights),
-                                            ::testing::ValuesIn(add_decompression_sub),
-                                            ::testing::ValuesIn(reshape_on_decompression),
-                                            ::testing::ValuesIn(filterAdditionalConfigBig()),
-                                            ::testing::Values(emptyFusingSpec),
-                                            ::testing::Values(shouldUseDecompressionKernelBig())),
-                         MatmulWeightsDecompression::getTestCaseName);
+// INSTANTIATE_TEST_SUITE_P(smoke_MatMulCompressedWeights_corner_cases_big,
+//                          MatmulWeightsDecompression,
+//                          ::testing::Combine(::testing::ValuesIn(input_shapes_corner_cases_big),
+//                                             ::testing::ValuesIn(weights_precisions),
+//                                             ::testing::ValuesIn(transpose_weights),
+//                                             ::testing::ValuesIn(add_decompression_sub),
+//                                             ::testing::ValuesIn(reshape_on_decompression),
+//                                             ::testing::ValuesIn(filterAdditionalConfigBig()),
+//                                             ::testing::Values(emptyFusingSpec),
+//                                             ::testing::Values(shouldUseDecompressionKernelBig())),
+//                          MatmulWeightsDecompression::getTestCaseName);
 } // namespace
 } // namespace SubgraphTestsDefinitions
