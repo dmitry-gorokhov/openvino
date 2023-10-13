@@ -14,9 +14,9 @@ using namespace ov::test;
 
 namespace SubgraphTestsDefinitions {
 /*
- *                        Subtract_const(U8/NF4)
+ *                        Subtract_const(U8/U4/I4/NF4)
  *                           /
- *    Weights(U8/NF4)     Convert(F32)
+ *    Weights(U8/U4/I4/NF4)     Convert(F32)
  *       |               /
  *    Convert(F32)   Reshape
  *            \        /       Multiply_const(F32)
@@ -132,10 +132,10 @@ protected:
 
         // std::vector<uint8_t> weights_data(shape_size(transformed_weights_shape), 0);
         // for (int i = 0; i < weights_data.size(); i++) {
-        //     weights_data[i] = i % 16;
+        //     weights_data[i] = i % 7;
         // }
 
-        auto weights = ngraph::builder::makeConstant<uint8_t>(weights_precision, transformed_weights_shape, {}, true);
+        auto weights = ngraph::builder::makeConstant<uint8_t>(weights_precision, transformed_weights_shape, {}, true, 7);
         weights->set_friendly_name("Compressed_weights");
         auto weights_convert = std::make_shared<ngraph::opset1::Convert>(weights, data_precision);
 
@@ -157,7 +157,7 @@ protected:
         if (reshape_on_decompression_constant)
             scaleshift_const_shape.erase(std::remove(scaleshift_const_shape.begin(), scaleshift_const_shape.end(), 1), scaleshift_const_shape.end());
         if (add_subtract) {
-            auto shift_const = ngraph::builder::makeConstant<uint8_t>(weights_precision, scaleshift_const_shape, {}, true);
+            auto shift_const = ngraph::builder::makeConstant<uint8_t>(weights_precision, scaleshift_const_shape, {}, true, 7);
             std::shared_ptr<ov::Node> shift_convert = std::make_shared<ngraph::opset1::Convert>(shift_const, data_precision);
             if (reshape_on_decompression_constant) {
                 auto shift_reshape_const = ov::opset10::Constant::create(ov::element::i32, {scaleshift_target_shape.size()}, scaleshift_target_shape);
@@ -253,10 +253,7 @@ protected:
     void checkResults() {
         const auto& test_param = GetParam();
         const auto& weights_precision = std::get<1>(test_param);
-        // TODO: remove this condition when group decompression is supported
-        if (weights_precision == ov::element::nf4 || std::get<0>(test_param).weights_group_size != -1) {
-            return;
-        }
+
         bool weights_found = false;
         for (const auto& n : compiledModel.get_runtime_model()->get_ordered_ops()) {
             if (n->get_friendly_name() == "Compressed_weights") {
@@ -309,17 +306,20 @@ bool shouldUseDecompressionKernelBasic() {
     return shouldUseDecompressionKernelBig();
 }
 
-const std::vector<ov::test::ElementType> weights_precisions = { /*ov::element::u8,*/ ov::element::nf4};
+const std::vector<ov::test::ElementType> weights_precisions = {//ov::element::u8,
+                                                               ov::element::u4,
+                                                               //ov::element::i4,
+                                                               ov::element::nf4};
 const std::vector<ShapeParams> input_shapes_basic = {
     // {{{-1, -1, -1}, {{1, 4, 16}, {10, 16, 16}}}, {16, 32}},
-    {{{}, {{1, 4, 8}}}, {8, 32}, 4ul},
+    // {{{}, {{1, 1, 4}}}, {4, 8}, 4ul},
     // {{{}, {{1, 4, 256}}}, {256, 24}, 1ul},
-    // {{{}, {{1, 1, 4096}}}, {4096, 4096}, 1ul},
-    // {{{}, {{1, 4, 4096}}}, {4096, 4096}, 32ul},
+    {{{}, {{1, 1, 4096}}}, {4096, 4096}, 64ul},
+    {{{}, {{1, 4, 4096}}}, {4096, 4096}, 32ul},
     // {{{}, {{1, 1, 8}}}, {8, 24}, 4ul},
     // {{{}, {{10, 40, 496}}}, {1, 496, 240}, 1ul},
-    {{{-1, 1, 4096}, {{1, 1, 4096}}}, {4096, 3840}, 128ul},
-    {{{-1, 5, 4096}, {{1, 5, 4096}}}, {4096, 3840}, 128ul},
+    // {{{-1, 1, 4096}, {{1, 1, 4096}}}, {4096, 3840}, 128ul},
+    // {{{-1, 5, 4096}, {{1, 5, 4096}}}, {4096, 3840}, 128ul},
     // {{{}, {{1, 4, 48}}}, {48, 256}},
     // {{{}, {{11, 339, 377}}}, {377, 335}},
 };
@@ -342,8 +342,8 @@ INSTANTIATE_TEST_SUITE_P(smoke_MatMulCompressedWeights_basic,
                          MatmulWeightsDecompression,
                          ::testing::Combine(::testing::ValuesIn(input_shapes_basic),
                                             ::testing::ValuesIn(weights_precisions),
-                                            ::testing::Values(true),
-                                            ::testing::Values(true),
+                                            ::testing::Values(false),
+                                            ::testing::Values(false),
                                             ::testing::Values(true),
                                             ::testing::ValuesIn(filterAdditionalConfigBasic()),
                                             ::testing::ValuesIn(fusingParamsSet),

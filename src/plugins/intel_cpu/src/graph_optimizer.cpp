@@ -286,7 +286,8 @@ void GraphOptimizer::FuseConvMatmulFCDeconvAndDQScales(Graph &graph) {
 }
 
 void GraphOptimizer::FuseFCAndWeightsDecompression(Graph &graph) {
-    std::set<InferenceEngine::Precision> supportedWeightsPrecisions{InferenceEngine::Precision::U8, InferenceEngine::Precision::NF4};
+    std::set<InferenceEngine::Precision> supportedWeightsPrecisions{InferenceEngine::Precision::U8, InferenceEngine::Precision::NF4,
+                                                                    InferenceEngine::Precision::U4, InferenceEngine::Precision::I4};
     const std::set<InferenceEngine::Precision> supportedDataPrecisions{InferenceEngine::Precision::FP32, InferenceEngine::Precision::BF16};
     auto expectedNode = [](NodePtr node, Type expectedType) {
         return node->getType() == expectedType && node->getChildEdges().size() == 1;
@@ -399,9 +400,9 @@ void GraphOptimizer::FuseFCAndWeightsDecompression(Graph &graph) {
         }
 
         // Fusion processing
-        fcNode->fuseDecompressionMultiplyPtr(multiplyConstNode);
+        fcNode->fuseDecompressionMultiply(multiplyConstNode);
         if (withSubtract)
-            fcNode->fuseDecompressionSubtractPtr(subtractConstNode);
+            fcNode->fuseDecompressionSubtract(subtractConstNode);
 
         fcNode->addOriginalLayer(multiplyNode->getOriginalLayers());
         fcNode->addOriginalLayer(convertNode->getOriginalLayers());

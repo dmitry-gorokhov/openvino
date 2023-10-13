@@ -208,7 +208,8 @@ void FullyConnected::getSupportedDescriptors() {
     useSparseWeights = useSparseWeightsDecompression();
     useWeightsDecompressionImpl = dnnl::impl::cpu::x64::mayiuse(dnnl::impl::cpu::x64::avx2) &&
                                   one_of(inputDataType, memory::data_type::f32, memory::data_type::bf16) &&
-                                  one_of(weightsDataType, memory::data_type::u8, memory::data_type::nf4);
+                                  one_of(weightsDataType, memory::data_type::u8, memory::data_type::nf4,
+                                                          memory::data_type::u4, memory::data_type::s4);
 
     // revert back outputDataType on special cases
     if (inputDataType == memory::data_type::f32) {
@@ -730,9 +731,9 @@ void FullyConnected::setPostOps(dnnl::primitive_attr& attr, const VectorDims& di
     bool withAMX = selected_pd->getImplementationType() & impl_desc_type::amx;
     int icBlock = withAMX ? 2 : 1;
     if (decompressionMultiplyPtr)
-        dnnlpoc.appendDecompressionScales(decompressionMultiplyPtr, icBlock);
+        dnnlpoc.appendDecompressionScales(decompressionMultiplyPtr, icBlock, !weightsNonTransposed);
     if (decompressionSubtractPtr)
-        dnnlpoc.appendDecompressionZeroPoints(decompressionSubtractPtr, icBlock);
+        dnnlpoc.appendDecompressionZeroPoints(decompressionSubtractPtr, icBlock, !weightsNonTransposed);
 
     for (size_t i = 0; i < fusedWith.size(); ++i) {
         auto& node = fusedWith[i];
