@@ -323,10 +323,12 @@ bool shouldUseDecompressionKernelBasic() {
 }
 
 const std::vector<ov::test::ElementType> decompression_precisions = {ov::element::f32};
-const std::vector<ov::test::ElementType> weights_precisions = {ov::element::u8,
+const std::vector<ov::test::ElementType> weights_precisions = {
+                                                               ov::element::u8,
                                                                ov::element::u4,
                                                                ov::element::i4,
-                                                               ov::element::nf4};
+                                                               ov::element::nf4
+                                                               };
 const std::vector<ShapeParams> input_shapes_basic = {
     {{{-1, -1, -1}, {{1, 4, 16}, {10, 16, 16}}}, {16, 32}},
     {{{}, {{1, 8, 16}}}, {16, 32}, 4ul},
