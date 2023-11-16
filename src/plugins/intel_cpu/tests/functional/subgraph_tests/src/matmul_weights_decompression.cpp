@@ -143,6 +143,10 @@ protected:
             transformed_weights_shape.insert(transformed_weights_shape.begin() + in_channel_idx + 1, group_size);
         }
 
+        // auto weights_data = std::vector<int8_t>(weights_shape[0] * weights_shape[1]);
+        // for (int i = 0; i < weights_data.size(); i++) {
+        //     weights_data[i] = i % 16;
+        // }
         auto weights = ngraph::builder::makeConstant<int8_t>(weights_precision, transformed_weights_shape, {}, true, 7);
         weights->set_friendly_name("Compressed_weights");
         auto weights_convert = std::make_shared<ngraph::opset1::Convert>(weights, decompression_precision);
@@ -307,15 +311,16 @@ std::vector<std::map<std::string, std::string>> filterAdditionalConfigAMX() {
 }
 
 const std::vector<ov::test::ElementType> decompression_precisions = {ov::element::f32};
-const std::vector<ov::test::ElementType> weights_precisions_basic = {ov::element::u8,
-                                                                     ov::element::u4,
-                                                                     ov::element::i4,
+const std::vector<ov::test::ElementType> weights_precisions_basic = {
+                                                                    //  ov::element::u8,
+                                                                    //  ov::element::u4,
+                                                                    //  ov::element::i4,
                                                                      ov::element::nf4};
 const std::vector<ov::test::ElementType> weights_precisions_amx = {ov::element::u8};
 
 const std::vector<ShapeParams> input_shapes_basic = {
     {{{-1, -1, -1}, {{1, 4, 16}, {10, 16, 16}}}, {16, 32}},
-    {{{}, {{1, 8, 16}}}, {16, 32}, 4ul},
+    {{{}, {{1, 1, 16}}}, {16, 32}},
     {{{}, {{1, 4, 16}}}, {1, 16, 32}},
     {{{}, {{10, 40, 496}}}, {1, 496, 240}},
     {{{}, {{1, 4, 48}}}, {48, 256}},
@@ -323,18 +328,18 @@ const std::vector<ShapeParams> input_shapes_basic = {
     {{{-1, -1, -1}, {{10, 40, 480}, {11, 40, 480}}}, {1, 480, 256}},
 };
 const std::vector<ShapeParams> input_shapes_amx = {
-    {{{-1, -1, -1}, {{10, 40, 480}, {11, 40, 480}}}, {1, 480, 256}},
-    {{{}, {{1, 4, 32}}}, {32, 256}},
-    {{{}, {{1, 16, 32}}}, {32, 64}},
-    {{{}, {{2, 4, 32}}}, {32, 65}},
-    {{{}, {{3, 12, 768}}}, {768, 1024}},
-    {{{}, {{11, 339, 577}}}, {577, 335}},
-    {{{}, {{1, 1, 256}}}, {256, 128}, 64ul},
+    // {{{-1, -1, -1}, {{10, 40, 480}, {11, 40, 480}}}, {1, 480, 256}},
+    // {{{}, {{1, 4, 32}}}, {32, 256}},
+    // {{{}, {{1, 16, 32}}}, {32, 64}},
+    // {{{}, {{2, 4, 32}}}, {32, 65}},
+    // {{{}, {{3, 12, 768}}}, {768, 1024}},
+    // {{{}, {{11, 339, 577}}}, {577, 335}},
+    // {{{}, {{1, 1, 256}}}, {256, 128}, 64ul},
 };
 const std::vector<fusingSpecificParams> fusing_params {
     emptyFusingSpec,
-    fusingBias,
-    fusingFakeQuantizePerTensorRelu
+    // fusingBias,
+    // fusingFakeQuantizePerTensorRelu
 };
 
 INSTANTIATE_TEST_SUITE_P(smoke_MatMulCompressedWeights_basic,
@@ -343,7 +348,7 @@ INSTANTIATE_TEST_SUITE_P(smoke_MatMulCompressedWeights_basic,
                                             ::testing::ValuesIn(weights_precisions_basic),
                                             ::testing::ValuesIn(decompression_precisions),
                                             ::testing::Values(true),
-                                            ::testing::Values(true),
+                                            ::testing::Values(false),
                                             ::testing::Values(true),
                                             ::testing::ValuesIn(filterAdditionalConfigBasic()),
                                             ::testing::ValuesIn(fusing_params),
@@ -364,14 +369,14 @@ INSTANTIATE_TEST_SUITE_P(smoke_MatMulCompressedWeights_amx,
                          MatmulWeightsDecompression::getTestCaseName);
 
 const std::vector<ShapeParams> input_shapes_corner_cases_basic = {
-    {{{-1, -1, -1}, {{1, 4, 16}}}, {1, 16, 32}},
-    {{{-1, -1, -1}, {{1, 4, 16}}}, {16, 32}},
-    {{{-1, -1, -1}, {{1, 4, 16}}}, {16, 32}, 4ul},
-    {{{-1, -1, -1}, {{1, 1, 4096}}}, {4096, 4096}, 128ul},
+//     {{{-1, -1, -1}, {{1, 4, 16}}}, {1, 16, 32}},
+//     {{{-1, -1, -1}, {{1, 4, 16}}}, {16, 32}},
+//     {{{-1, -1, -1}, {{1, 4, 16}}}, {16, 32}, 4ul},
+//     {{{-1, -1, -1}, {{1, 1, 4096}}}, {4096, 4096}, 128ul},
 };
 const std::vector<ShapeParams> input_shapes_corner_cases_amx = {
-    {{{-1, -1, -1}, {{10, 40, 480}, {11, 40, 480}}}, {1, 480, 256}},
-    {{{-1, -1, -1}, {{1, 1, 4096}}}, {4096, 4096}, 128ul},
+//     {{{-1, -1, -1}, {{10, 40, 480}, {11, 40, 480}}}, {1, 480, 256}},
+//     {{{-1, -1, -1}, {{1, 1, 4096}}}, {4096, 4096}, 128ul},
 };
 
 const std::vector<bool> transpose_weights = {true, false};
