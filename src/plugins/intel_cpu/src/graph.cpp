@@ -38,6 +38,7 @@
 #include "utils/general_utils.h"
 #include "utils/ngraph_utils.hpp"
 #include "utils/node_dumper.h"
+#include "utils/profiler.hpp"
 #include "utils/verbose.h"
 #include "utils/precision_support.h"
 
@@ -1014,6 +1015,7 @@ bool Graph::ProcessDynNodes() {
 }
 
 void Graph::PushInputData(const std::size_t& index, const ov::SoPtr<ITensor>& input) {
+    PROFILE(_prof, "Graph::PushInputData");
     if (!IsReady()) OPENVINO_THROW("Wrong state. Topology not ready.");
     auto input_itr = inputNodesMap.find(index);
     if (input_itr != inputNodesMap.end()) {
@@ -1046,6 +1048,7 @@ void Graph::PushInputData(const std::size_t& index, const ov::SoPtr<ITensor>& in
 
 // suppose always being shared infer_request intel_cpu::Tensor to Graph if isDynamic.
 void Graph::PullOutputData(std::unordered_map<std::size_t, ov::SoPtr<ITensor>>& output) {
+    PROFILE(_prof, "Graph::PullOutputData");
     if (!IsReady())
         OPENVINO_THROW("Wrong state. Topology not ready.");
 
@@ -1335,6 +1338,7 @@ public:
 /* group all the profiling macros into a single one
  * to avoid cluttering a core logic */
 #define VERBOSE_PERF_DUMP_ITT_DEBUG_LOG(ittScope, node, config) \
+    PROFILE(_prof, node->getTypeStr(), node->getName()); \
     VERBOSE(node, config.debugCaps.verbose, infer_count); \
     PERF(node, config.collectPerfCounters, perfKey); \
     DUMP(node, config.debugCaps, nestingLevel, infer_count); \
@@ -1360,11 +1364,15 @@ inline void Graph::ExecuteNodeWithCatch(const NodePtr& node, SyncInferRequest* r
 
 template<typename UpdateStrategy>
 void Graph::InferDynamic(SyncInferRequest* request, int numaId, UpdateStrategy&& update) {
+    PROFILE(_prof0, std::string("Graph::InferDynamic_#") + std::to_string(infer_count));
     CPU_DEBUG_CAP_ENABLE(const PerfKey perfKey = perfGetKey(*this));
 
     size_t inferCounter = 0;
     for (auto stopIndx : m_executableSyncNodesInds) {
-        update(stopIndx);
+        {
+            PROFILE(_prof, "updateNodes");
+            update(stopIndx);
+        }
 
         for (; inferCounter < stopIndx; ++inferCounter) {
             auto& node = m_executableGraphNodes[inferCounter];
