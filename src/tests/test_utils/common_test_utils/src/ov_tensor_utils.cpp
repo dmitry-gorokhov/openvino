@@ -70,6 +70,8 @@ ov::Tensor create_and_fill_tensor(const ov::element::Type element_type,
         CASE_CONVERT(ov::element::nf4)
         CASE_CONVERT(ov::element::f8e4m3)
         CASE_CONVERT(ov::element::f8e5m2)
+        CASE_CONVERT(ov::element::f8e8m0)
+        CASE_CONVERT(ov::element::f4e2m1)
     case ov::element::boolean:
         fill_data_boolean(static_cast<fundamental_type_for<ov::element::boolean>*>(tensor.data()),
                           size,
@@ -274,6 +276,7 @@ ov::Tensor create_and_fill_tensor_real_distribution(const ov::element::Type elem
     case ov::element::Type_t::i4:
     case ov::element::Type_t::u4:
     case ov::element::Type_t::nf4:
+    case ov::element::Type_t::f8e8m0:
         fill_data_ptr_real_random_float(static_cast<uint8_t*>(tensor.data()), tensor.get_byte_size(), min, max, seed);
         break;
     default:

@@ -28,10 +28,11 @@ ov::pass::MarkDequantizationSubgraph::MarkDequantizationSubgraph(const element::
     auto input_pattern = pattern::any_input();
     auto convert_pattern = pattern::wrap_type<ov::op::v0::Convert>({input_pattern}, pattern::consumers_count(1));
     auto zero_point_pattern = pattern::any_input();
+    auto scale_pattern = pattern::any_input();
     auto subtract_pattern = pattern::wrap_type<ov::op::v1::Subtract>({convert_pattern, zero_point_pattern});
-    auto multiply_pattern = pattern::wrap_type<ov::op::v1::Multiply>({subtract_pattern, pattern::any_input()});
+    auto multiply_pattern = pattern::wrap_type<ov::op::v1::Multiply>({subtract_pattern, scale_pattern});
     auto multiply_no_subtract_pattern =
-        pattern::wrap_type<ov::op::v1::Multiply>({convert_pattern, pattern::any_input()});
+        pattern::wrap_type<ov::op::v1::Multiply>({convert_pattern, scale_pattern});
     auto root = std::make_shared<pattern::op::Or>(OutputVector{multiply_pattern, multiply_no_subtract_pattern});
 
     ov::matcher_pass_callback callback = [OV_CAPTURE_CPY_AND_THIS](pattern::Matcher& m) -> bool {
@@ -99,6 +100,10 @@ ov::pass::MarkDequantizationSubgraph::MarkDequantizationSubgraph(const element::
 
         // mark Multiply as dequantization node
         ov::mark_as_dequantization_node(multiply);
+
+        auto scale = multiply->get_input_node_shared_ptr(1);
+        ov::disable_constant_folding(scale);
+        ov::enable_keep_const_precision(scale->get_input_node_shared_ptr(0));
 
         return false;
     };

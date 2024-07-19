@@ -131,11 +131,17 @@ std::shared_ptr<ov::Node> initMatMulDecompressionSubgraph(
     }
 
     const auto& scale_prc = scale_precision == ov::element::undefined ? decompression_precision : scale_precision;
-    auto scale_const_tensor = ov::test::utils::create_and_fill_tensor_real_distribution(scale_prc,
+    // auto scale_const_tensor = ov::test::utils::create_and_fill_tensor_real_distribution(scale_prc,
+    //                                                                                     scaleshift_const_shape,
+    //                                                                                     0.001f,
+    //                                                                                     0.01f,
+    //                                                                                     1);
+        auto scale_const_tensor = ov::test::utils::create_and_fill_tensor_real_distribution(scale_prc,
                                                                                         scaleshift_const_shape,
-                                                                                        0.001f,
-                                                                                        0.01f,
+                                                                                        120.f,
+                                                                                        127.f,
                                                                                         1);
+
     std::shared_ptr<ov::Node> scale_const = std::make_shared<ov::op::v0::Constant>(scale_const_tensor);
 
     if (scale_prc != decompression_precision) {

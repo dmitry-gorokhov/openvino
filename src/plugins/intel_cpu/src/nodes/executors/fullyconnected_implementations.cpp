@@ -22,6 +22,7 @@
 #include "nodes/executors/precision_matcher.hpp"
 #include "nodes/executors/precision_translation.hpp"
 #include "nodes/executors/type_mask.hpp"
+#include "nodes/executors/tpp/tpp_fullyconnected.hpp"
 #include "openvino/core/type/element_type.hpp"
 #include "ov_optional.hpp"
 #include "utils/cpp/maybe_unused.hpp"
@@ -205,6 +206,28 @@ const std::vector<ExecutorImplementation<FCAttrs>>& getImplementations() {
                const ExecutorContext::CPtr context) {
                 return std::make_shared<MlasGemmExecutor>(attrs, postOps, memory, context);
             })
+        OV_CPU_INSTANCE_TPP(
+            "fullyconnected_tpp",
+            ExecutorType::Tpp,
+            OperationType::FullyConnected,
+            ShapeTolerance::Agnostic,
+            // supports
+            [](const FCConfig& config) -> bool {
+                return TPPFCExecutor::supports(config);
+            },
+            // requiresFallback
+            [](const FCConfig& config) -> ov::optional<executor::Config<FCAttrs>> {
+                return {};
+            },
+            // acceptsShapes
+            [](const MemoryArgs& memory) -> bool {
+                return true;
+            },
+            // create
+            [](const FCAttrs& attrs, const PostOps& postOps, const MemoryArgs& memory, ExecutorContext::CPtr context) {
+                return std::make_shared<TPPFCExecutor>(attrs, postOps, memory, context);
+            })
+
         OV_CPU_INSTANCE_X64(
             "convolution_1x1_dnnl",
             ExecutorType::Dnnl,

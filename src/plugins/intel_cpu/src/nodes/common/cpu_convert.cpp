@@ -634,6 +634,40 @@ struct ConvertFrom4BitPrecision {
             parallel_for(ctx.size, [&](size_t i) {
                 dst[i] = static_cast<DT>(get_i4(src[i / 2], i % 2));
             });
+        } else if (ctx.inType == ov::element::f4e2m1) {
+            parallel_for(ctx.size, [&](size_t i) {
+                dst[i] = static_cast<DT>(float4_e2m1::from_bits(get_u4(src[i / 2], i % 2)));
+            });
+        } else {
+            OPENVINO_THROW("cpu_convert doesn't support input data type: ", ctx.inType, ". Not implemented.");
+        }
+        ctx.converted = true;
+    }
+};
+
+
+#define INTEL_CPU_CVT_FROM_BYTE_FP(DT) OV_CASE(ov::element::DT, PrecisionInfo<ov::element::DT>::value_type)
+
+#define INTEL_CPU_CVT_FROM_BYTE_FP_LIST                                                           \
+    INTEL_CPU_CVT_FROM_BYTE_FP(f32), INTEL_CPU_CVT_FROM_BYTE_FP(bf16), INTEL_CPU_CVT_FROM_BYTE_FP(f16)
+
+struct ConvertFromByteFPContext {
+    ov::element::Type_t inType;
+    const void *srcPtr;
+    void *dstPtr;
+    size_t size;
+    bool converted;
+};
+
+template <typename DT>
+struct ConvertFromByteFPPrecision {
+    void operator()(ConvertFromByteFPContext &ctx) {
+        auto src = static_cast<const uint8_t*>(ctx.srcPtr);
+        auto dst = static_cast<DT*>(ctx.dstPtr);
+        if (ctx.inType == ov::element::f8e8m0) {
+            parallel_for(ctx.size, [&](size_t i) {
+                dst[i] = static_cast<DT>(float8_e8m0::from_bits(src[i]));
+            });
         } else {
             OPENVINO_THROW("cpu_convert doesn't support input data type: ", ctx.inType, ". Not implemented.");
         }
@@ -701,6 +735,11 @@ void cpu_convert(const void *srcPtr,
     } else if (srcPrc.bitwidth() == 4u) {
         ConvertFrom4BitContext ctx{srcPrc, srcPtr, dstPtr, size, false};
         OV_SWITCH(intel_cpu, ConvertFrom4BitPrecision, ctx, dstPrc, INTEL_CPU_CVT_FROM_4BIT_LIST);
+        if (!ctx.converted)
+            OPENVINO_THROW("cpu_convert can't convert from: ", srcPrc, " precision to: ", dstPrc);
+    } else if (srcPrc.bitwidth() == 8u && srcPrc.is_real()) {
+        ConvertFromByteFPContext ctx{srcPrc, srcPtr, dstPtr, size, false};
+        OV_SWITCH(intel_cpu, ConvertFromByteFPPrecision, ctx, dstPrc, INTEL_CPU_CVT_FROM_BYTE_FP_LIST);
         if (!ctx.converted)
             OPENVINO_THROW("cpu_convert can't convert from: ", srcPrc, " precision to: ", dstPrc);
     } else {

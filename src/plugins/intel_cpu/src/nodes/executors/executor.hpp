@@ -47,6 +47,12 @@ namespace intel_cpu {
 #    define OV_CPU_INSTANCE_MLAS_X64(...)
 #endif
 
+// #if defined(OV_CPU_WITH_TPP)
+#    define OV_CPU_INSTANCE_TPP(...) {__VA_ARGS__},
+// #else
+// #    define OV_CPU_INSTANCE_TPP(...)
+// #endif
+
 #define OV_CPU_INSTANCE_COMMON(...) {__VA_ARGS__},
 
 // @todo another option is to determine shape relation by executor type
@@ -63,7 +69,8 @@ enum class ExecutorType {
     Dnnl,
     Acl,
     Mlas,
-    jit_aarch64
+    jit_aarch64,
+    Tpp,
 };
 
 enum class OperationType {

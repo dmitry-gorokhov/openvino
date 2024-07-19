@@ -17,6 +17,7 @@
 #include <ov_ops/augru_cell.hpp>
 #include <ov_ops/augru_sequence.hpp>
 #include <ov_ops/gather_compressed.hpp>
+#include <openvino/pass/visualize_tree.hpp>
 
 // Common transformations
 #include "transformations/common_optimizations/mark_precision_sensitive_shapeof_subgraphs.hpp"
@@ -318,7 +319,8 @@ void Transformations::PreLpt(const std::vector<ov::element::Type>& defaultPrecis
                                                      ov::element::i8,
                                                      ov::element::u4,
                                                      ov::element::i4,
-                                                     ov::element::nf4};
+                                                     ov::element::nf4,
+                                                     ov::element::f4e2m1};
     CPU_REGISTER_PASS_X64(decompression_handling_manager, ov::pass::MarkDequantizationSubgraph, decompression_precisions, false);
     CPU_SET_CALLBACK_X64(decompression_handling_manager, [&](const_node_ptr &node) -> bool {
         return !is_decompression_multiply(node);
@@ -657,8 +659,8 @@ void Transformations::PreLpt(const std::vector<ov::element::Type>& defaultPrecis
     /* In some cases, during the transformation pipeline, some MatMul nodes can be transformed into other nodes. For example, they can become part of
        AUGRUCell node (see AUGRUCellFusion pass). In such cases, some constant paths will be unfolded, which can lead to crashes in the plugin. To avoid this,
        we re-mark decompression converts again and finally do CF for those constant paths that are not inputs to MatMul node */
-    CPU_REGISTER_PASS_COMMON(manager, ov::pass::EnableDecompressionConvertConstantFolding);
-    CPU_REGISTER_PASS_COMMON(manager, ov::pass::KeepConstAndDecompression);
+    // CPU_REGISTER_PASS_COMMON(manager, ov::pass::EnableDecompressionConvertConstantFolding);
+    // CPU_REGISTER_PASS_COMMON(manager, ov::pass::KeepConstAndDecompression);
     CPU_REGISTER_PASS_COMMON(manager, ov::pass::ConstantFolding);
 
     manager.run_passes(model);

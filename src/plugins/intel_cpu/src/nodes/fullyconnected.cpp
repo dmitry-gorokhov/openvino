@@ -245,7 +245,7 @@ void FullyConnected::initSupportedPrimitiveDescriptors() {
 
     const int inPlace = canBeInPlace() ? 0 : -1;
     nodeConfig.outConfs.emplace_back(nodeDescriptors.at(ARG_DST), BlockedMemoryDesc::FULL_MASK, inPlace);
-
+    std::cerr << nodeConfig.inConfs[1].getMemDesc()->getPrecision() << std::endl;
     supportedPrimitiveDescriptors.emplace_back(nodeConfig, impl_desc_type::undef);
 }
 
