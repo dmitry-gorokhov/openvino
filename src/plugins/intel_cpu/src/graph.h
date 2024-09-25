@@ -220,10 +220,6 @@ protected:
     }
     Status status { Status::NotReady };
 
-    // For dumping purposes. -1 - no counting, all other positive
-    // values mean increment it within each Infer() call
-    int infer_count = -1;
-
     bool reuse_io_tensors = true;
 
     MemoryPtr memWorkspace;
@@ -260,7 +256,7 @@ protected:
      * @params request  Current inference request, which is checked for cancelation
      * @params numaId   Numa Id to be used for an execution
      */
-    void ExecuteNodeWithCatch(const NodePtr& node, SyncInferRequest* request = nullptr, int numaId = -1) const;
+    void ExecuteNodeWithCatch(const NodePtr& node, SyncInferRequest* request = nullptr, int numaId = -1, PerfKey perfKey = 0) const;
 
     /**
      * Execute a given \p node within \p request using \p numaId

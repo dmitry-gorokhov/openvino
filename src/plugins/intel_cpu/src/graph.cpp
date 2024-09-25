@@ -1307,9 +1307,9 @@ public:
 
 /* group all the profiling macros into a single one
  * to avoid cluttering a core logic */
-#define VERBOSE_PERF_DUMP_ITT_DEBUG_LOG(ittScope, node, config) \
-    VERBOSE(node, config.debugCaps.verbose); \
-    PERF(node, config.collectPerfCounters); \
+#define VERBOSE_PERF_DUMP_ITT_DEBUG_LOG(ittScope, node, config, perfKey) \
+    VERBOSE(node, config.debugCaps.verbose, infer_count); \
+    PERF(node, config.collectPerfCounters, perfKey); \
     DUMP(node, config.debugCaps, infer_count); \
     OV_ITT_SCOPED_TASK(ittScope, node->profiling.execute); \
     DEBUG_LOG(*node);
@@ -1321,8 +1321,8 @@ inline void Graph::ExecuteNode(const NodePtr& node, SyncInferRequest* request, i
     node->execute(m_stream, numaId);
 }
 
-inline void Graph::ExecuteNodeWithCatch(const NodePtr& node, SyncInferRequest* request, int numaId) const {
-    VERBOSE_PERF_DUMP_ITT_DEBUG_LOG(itt::domains::intel_cpu, node, getConfig());
+inline void Graph::ExecuteNodeWithCatch(const NodePtr& node, SyncInferRequest* request, int numaId, PerfKey perfKey) const {
+    VERBOSE_PERF_DUMP_ITT_DEBUG_LOG(itt::domains::intel_cpu, node, getConfig(), perfKey);
 
     try {
         ExecuteNode(node, request, numaId);
@@ -1349,7 +1349,7 @@ void Graph::InferDynamic(SyncInferRequest* request, int numaId, UpdateStrategy&&
             VERBOSE(node, getConfig().debugCaps.verbose, infer_count);
             PERF(node, getConfig().collectPerfCounters, perfKey);
 
-            ExecuteNodeWithCatch(node, request, numaId);
+            ExecuteNodeWithCatch(node, request, numaId, perfKey);
         }
     }
 }

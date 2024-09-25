@@ -579,18 +579,19 @@ void Node::updateShapes() {
                     getName());
         try {
             IShapeInfer::Result result = {{}, ShapeInferStatus::skip};
-            {
-                PERF_SHAPE_INFER(this);
-                PROFILE(_prof, "updateShape", getName());
-                if (needShapeInfer()) {
+            if (needShapeInfer()) {
+                {
+                    PERF_SHAPE_INFER(this);
+                    PROFILE(_prof, "updateShape", getName());
                     result = shapeInfer();
                 }
-            }
-            {
-                PERF_PREDEFINE_OUTPUT_MEMORY(this);
-                PROFILE(_prof, "redefineOutputMemory", getName());
-                if (ShapeInferStatus::success == result.status) {
-                    redefineOutputMemory(result.dims);
+
+                {
+                    PERF_PREDEFINE_OUTPUT_MEMORY(this);
+                    PROFILE(_prof, "redefineOutputMemory", getName());
+                    if (ShapeInferStatus::success == result.status) {
+                        redefineOutputMemory(result.dims);
+                    }
                 }
             } else {
                 //guard check for internal dynamic nodes to avoid possible overestimation of the required memory size
