@@ -371,7 +371,7 @@ void Graph::Activate(const std::vector<MemoryPtr>& externalInputMemory,
 
     std::tie(m_executableGraphNodes, m_executableSyncNodesInds) = ExtractExecutableNodesAndSyncPoints(syncNodesInds, graphNodes);
 
-    status = hasDynNodes ? (parallel_get_max_threads() > 1 ? Status::ReadyDynamic : Status::ReadyDynamicSeq)
+    status = hasDynNodes ? Status::ReadyDynamicSeq
         : Status::ReadyStatic;
 
     CPU_DEBUG_CAP_ENABLE(serialize(*this));
@@ -1113,6 +1113,7 @@ public:
     void operator()(size_t stopIndx) {
         for (; prepareCounter < stopIndx; ++prepareCounter) {
             const auto& node = m_executableGraphNodes[prepareCounter];
+            PROFILE(_prof, "UpdateNodesSeq_" +  node->getTypeStr());
             if (node->isDynamicNode()) {
                 node->updateShapes();
                 node->updateDynamicParams();
@@ -1346,8 +1347,8 @@ void Graph::InferDynamic(SyncInferRequest* request, int numaId, UpdateStrategy&&
             auto& node = m_executableGraphNodes[inferCounter];
 
             PROFILE(_prof, node->getTypeStr(), node->getName());
-            VERBOSE(node, getConfig().debugCaps.verbose, infer_count);
-            PERF(node, getConfig().collectPerfCounters, perfKey);
+            // VERBOSE(node, getConfig().debugCaps.verbose, infer_count);
+            // PERF(node, getConfig().collectPerfCounters, perfKey);
 
             ExecuteNodeWithCatch(node, request, numaId, perfKey);
         }

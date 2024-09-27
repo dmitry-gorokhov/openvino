@@ -579,21 +579,30 @@ void Node::updateShapes() {
                     getName());
         try {
             IShapeInfer::Result result = {{}, ShapeInferStatus::skip};
-            if (needShapeInfer()) {
+            bool needShapeInference = false;
+
+            {
+                PROFILE(_prof, "needShapeInfer", getName());
+                needShapeInference = needShapeInfer();
+            }
+
+            if (needShapeInference) {
                 {
-                    PERF_SHAPE_INFER(this);
+                    // PERF_SHAPE_INFER(this);
                     PROFILE(_prof, "updateShape", getName());
                     result = shapeInfer();
                 }
 
                 {
-                    PERF_PREDEFINE_OUTPUT_MEMORY(this);
+                    // PERF_PREDEFINE_OUTPUT_MEMORY(this);
                     PROFILE(_prof, "redefineOutputMemory", getName());
                     if (ShapeInferStatus::success == result.status) {
                         redefineOutputMemory(result.dims);
                     }
                 }
             } else {
+                PROFILE(_prof, "fetchRawMemory", getName());
+
                 //guard check for internal dynamic nodes to avoid possible overestimation of the required memory size
                 if (shapeInference && FULL_PORT_MASK == shapeInference->get_port_mask())
                     return;
@@ -626,7 +635,7 @@ void Node::updateDynamicParams() {
                     " with name: ",
                     getName());
     try {
-        PERF_PREPARE_PARAMS(this);
+        // PERF_PREPARE_PARAMS(this);
         PROFILE(_prof, "updateDynamicParams", getName());
         if (isExecutable()) {
             if (needPrepareParams()) {

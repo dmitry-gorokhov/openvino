@@ -22,8 +22,8 @@ namespace intel_cpu {
 
 uint64_t tsc_ticks_per_second;
 uint64_t tsc_ticks_base;
-inline uint64_t tsc_to_usec(uint64_t tsc_ticks) {
-    return (tsc_ticks - tsc_ticks_base) * 1000000 / tsc_ticks_per_second;
+inline uint64_t tsc_to_nsec(uint64_t tsc_ticks) {
+    return (tsc_ticks - tsc_ticks_base) * 1000000000 / tsc_ticks_per_second;
 }
 
 void init_tsc() {
@@ -106,8 +106,8 @@ struct ProfilerManagerFinalizer {
             for (auto& d : pthis->all_data) {
                 ct.addCompleteEvent(d.name,
                                     d.cat,
-                                    tsc_to_usec(d.start),
-                                    tsc_to_usec(d.end) - tsc_to_usec(d.start));
+                                    tsc_to_nsec(d.start),
+                                    tsc_to_nsec(d.end) - tsc_to_nsec(d.start));
             }
             pthis->all_data.clear();
             std::cout << "[OV_CPU_PROFILE] #" << pthis->serial << "(" << pthis << ") finalize: dumpped "
@@ -122,7 +122,7 @@ struct ProfilerManagerFinalizer {
             "pid": "Traces",
             "tid": "Trace OV Profiler",
             "ts":)"
-           << tsc_to_usec(__rdtsc()) << "}",
+           << tsc_to_nsec(__rdtsc()) << "}",
             fw << "]\n";
         fw << "}\n";
         auto total_size = fw.tellp();
