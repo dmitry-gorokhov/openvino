@@ -13,6 +13,9 @@
 #include "openvino/core/type/float16.hpp"
 
 #if defined(OPENVINO_ARCH_ARM64)
+#if defined(HAVE_SVE)
+#include "arm_sve.h"
+#endif
 #include "arm_neon.h"
 #endif
 
