@@ -277,6 +277,30 @@ target_include_directories(${TARGET_NAME} SYSTEM PRIVATE $<TARGET_PROPERTY:dnnl,
 # is not (yet) needed.
 target_include_directories(${TARGET_NAME} PRIVATE $<TARGET_PROPERTY:openvino::reference,INTERFACE_INCLUDE_DIRECTORIES>)
 
+# Check if SVE is available for AARCH64; compile with that if yes.
+if (ARM OR AARCH64)
+    execute_process(
+        COMMAND lscpu
+        OUTPUT_VARIABLE CPUINFO
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    string(FIND "${CPUINFO}" "Flags:" FLAGS_INDEX)
+    string(SUBSTRING "${CPUINFO}" ${FLAGS_INDEX} -1 CPU_FLAGS)
+    string(FIND "${CPU_FLAGS}" "sve" ISA_FOUND)
+    
+    if (NOT ISA_FOUND EQUAL -1)
+        set(HAVE_SVE ON)
+    else()
+        set(HAVE_SVE OFF)
+    endif()
+
+    if (HAVE_SVE)
+        message(STATUS "[AARCH64] ISA SVE detected")
+        target_compile_options(${TARGET_NAME} PRIVATE "-march=armv8.4-a+sve")
+        add_definitions(-DHAVE_SVE)
+    endif()
+endif()
+
 # Cross compiled function
 # TODO: The same for proposal, proposalONNX, topk
 cross_compiled_file(${TARGET_NAME}
