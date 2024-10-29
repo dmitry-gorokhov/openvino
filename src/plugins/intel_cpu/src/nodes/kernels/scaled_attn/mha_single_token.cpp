@@ -21,7 +21,7 @@
 #include "softmax_kernel.hpp"
 
 #if defined(OPENVINO_ARCH_ARM64)
-#if defined(__ARM_FEATURE_SVE)
+#if defined(HAVE_SVE)
 #   include <arm_sve.h>
 #endif
 #   include <arm_neon.h>
@@ -62,7 +62,7 @@ void cvt_copy(TA* dst, TB* src, size_t n) {
         mm256_uni_storeu_ps(dst + i, vb);
     }
 #elif defined(OPENVINO_ARCH_ARM64)
-#if defined(__ARM_FEATURE_SVE) && !defined(__ARM_FEATURE_FP16_VECTOR_ARITHMETIC)
+#if defined(HAVE_SVE)
     size_t vec_len_f32_sve = svcntw();
     auto _dst = reinterpret_cast<float32_t*>(dst);
     size_t inc = vec_len_f32_sve;
@@ -122,7 +122,7 @@ static void attn_acc_value(float* out, float weight, T* v, size_t S, float* scal
         mm256_uni_storeu_ps(out + i, v_out);
     }
 #elif defined(OPENVINO_ARCH_ARM64)
-#if defined(__ARM_FEATURE_SVE) && !defined(__ARM_FEATURE_FP16_VECTOR_ARITHMETIC)
+#if defined(HAVE_SVE)
     size_t vec_len_f32_sve = svcntw();
     auto _v = reinterpret_cast<float32_t*>(v);
     svfloat32_t attn_w_vec_fp32 = svdup_n_f32(weight);
@@ -403,7 +403,7 @@ static float sum_q_head(T* a, size_t n) {
     hsum(vsum0);
     sum = _mm256_cvtss_f32(vsum0);
 #elif defined(OPENVINO_ARCH_ARM64)
-#if defined(__ARM_FEATURE_SVE) && !defined(__ARM_FEATURE_FP16_VECTOR_ARITHMETIC)
+#if defined(HAVE_SVE)
     size_t vec_len_f32_sve = svcntw();
     svfloat32_t sum0 = svdup_n_f32(0.0f);
     svfloat32_t sum1 = svdup_n_f32(0.0f);
@@ -588,7 +588,7 @@ static float dot_product(TA* a, TB* b, size_t n, float* scale, float* zp, float*
     sum = _mm256_cvtss_f32(vsum0);
 
 #elif defined(OPENVINO_ARCH_ARM64)
-#if defined(__ARM_FEATURE_SVE) && !defined(__ARM_FEATURE_FP16_VECTOR_ARITHMETIC)
+#if defined(HAVE_SVE)
     size_t vec_len_f32_sve = svcntw();
     svbool_t pg = svptrue_b32();
     svfloat32_t sum0 = svdup_n_f32(0.0f);
@@ -939,7 +939,7 @@ static void attn_reduce(T* dst, float* temp, size_t M, size_t S, size_t temp_str
         mm256_uni_storeu_ps(dst + i, result_vec_fp32);
     }
 #elif defined(OPENVINO_ARCH_ARM64)
-#if defined(__ARM_FEATURE_SVE) && !defined(__ARM_FEATURE_FP16_VECTOR_ARITHMETIC)
+#if defined(HAVE_SVE)
     size_t vec_len_f32_sve = svcntw();
     auto _dst = reinterpret_cast<float32_t*>(dst);
     size_t inc = vec_len_f32_sve;
