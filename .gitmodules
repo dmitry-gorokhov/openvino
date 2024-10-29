@@ -72,8 +72,8 @@
 [submodule "src/plugins/intel_cpu/thirdparty/mlas"]
 	path = src/plugins/intel_cpu/thirdparty/mlas
 	url = https://github.com/openvinotoolkit/mlas.git
-[submodule "thirdparty/level_zero/level-zero"]
-	path = thirdparty/level_zero/level-zero
+[submodule "src/plugins/intel_npu/thirdparty/level-zero"]
+	path = src/plugins/intel_npu/thirdparty/level-zero
 	url = https://github.com/oneapi-src/level-zero.git
 [submodule "src/plugins/intel_npu/thirdparty/level-zero-ext"]
 	path = src/plugins/intel_npu/thirdparty/level-zero-ext
@@ -87,6 +87,3 @@
 [submodule "src/plugins/intel_cpu/thirdparty/shl"]
 	path = src/plugins/intel_cpu/thirdparty/shl
 	url = https://github.com/openvinotoolkit/shl.git
-[submodule "thirdparty/src/plugins/intel_npu/thirdparty/level-zero"]
-	path = thirdparty/src/plugins/intel_npu/thirdparty/level-zero
-	url = https://github.com/oneapi-src/level-zero
