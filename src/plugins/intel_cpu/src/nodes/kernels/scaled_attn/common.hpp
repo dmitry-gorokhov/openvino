@@ -13,7 +13,7 @@
 #include "openvino/core/type/float16.hpp"
 
 #if defined(OPENVINO_ARCH_ARM64)
-#if defined(HAVE_SVE)
+#if defined(__ARM_FEATURE_SVE)
 #include "arm_sve.h"
 #endif
 #include "arm_neon.h"
@@ -249,7 +249,7 @@ static constexpr size_t vec_len_f16_neon = vec_len_neon / sizeof(ov::float16);
 #endif
 
 #ifdef OPENVINO_ARCH_ARM64
-#if defined(HAVE_SVE) && !defined(__ARM_FEATURE_FP16_VECTOR_ARITHMETIC)
+#if defined(__ARM_FEATURE_SVE) && !defined(__ARM_FEATURE_FP16_VECTOR_ARITHMETIC)
     inline svfloat32_t exp_ps_sve(svbool_t& pg, svfloat32_t& src) {
         // Constants
         const auto log2_e = svdup_n_f32(1.4426950409f);

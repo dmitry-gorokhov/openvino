@@ -24,6 +24,7 @@ bin/
 doc/
 docs/build_documentation/work_dir/
 temp/
+fj/
 .repo/
 CMakeLists.txt.user
 docs/IE_PLUGIN_DG/html/

@@ -12,7 +12,7 @@
 #include <vector>
 
 #if defined(OPENVINO_ARCH_ARM64)
-#if defined(HAVE_SVE)
+#if defined(__ARM_FEATURE_SVE)
 #include "arm_sve.h"
 #endif
 #include "arm_neon.h"
@@ -659,7 +659,7 @@ inline void exp_reduce_sum(float* a, const float max, const size_t size, float& 
     hsum(v_sum);
     sum = _mm256_cvtss_f32(v_sum);
 #elif defined(OPENVINO_ARCH_ARM64)
-#if defined(HAVE_SVE) && !defined(__ARM_FEATURE_FP16_VECTOR_ARITHMETIC)
+#if defined(__ARM_FEATURE_SVE) && !defined(__ARM_FEATURE_FP16_VECTOR_ARITHMETIC)
     svfloat32_t v_a;
     svfloat32_t v_max = svdup_n_f32(max);
     svfloat32_t v_sum = svdup_n_f32(0.0f);
@@ -805,7 +805,7 @@ inline void multiply_scalar(float* a, float* a_dst, const float val, const size_
         i += (size - i);
     }
 #elif defined(OPENVINO_ARCH_ARM64)
-#if defined(HAVE_SVE) && !defined(__ARM_FEATURE_FP16_VECTOR_ARITHMETIC)
+#if defined(__ARM_FEATURE_SVE) && !defined(__ARM_FEATURE_FP16_VECTOR_ARITHMETIC)
     size_t vec_len_f32_sve = svcntw();
     svfloat32_t v_scale = svdup_n_f32(val);
     size_t inc = vec_len_f32_sve;

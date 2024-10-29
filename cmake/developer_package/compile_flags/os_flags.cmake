@@ -209,6 +209,38 @@ macro(ov_arm_neon_fp16_optimization_flags flags)
 endmacro()
 
 #
+# ov_arm_sve_optimization_flags(<output flags>)
+#
+macro(ov_arm_sve_optimization_flags flags)
+    if(OV_COMPILER_IS_INTEL_LLVM)
+        message(WARNING "Unsupported CXX compiler ${CMAKE_CXX_COMPILER_ID}")
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        # nothing to define; works out of box
+    elseif(ANDROID)
+        if(ANDROID_ABI STREQUAL "arm64-v8a")
+            set(${flags} -march=armv8-a+sve -Wno-unused-command-line-argument)
+        else()
+            message(WARNING "SVE is not supported on this Android ABI: ${ANDROID_ABI}")
+        endif()
+    else()
+        if(AARCH64)
+            set(${flags} -O2 -march=armv8-a+sve)
+            if(NOT CMAKE_CL_64)
+                list(APPEND ${flags} -ftree-vectorize)
+            endif()
+            # Check for SVE support
+            if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+                set(${flags} ${${flags}} -march=armv8-a+sve)
+            else()
+                message(WARNING "SVE is not supported on this architecture.")
+            endif()
+        elseif(ARM)
+            message(WARNING "SVE is not supported on 32-bit ARM architectures.")
+        endif()
+    endif()
+endmacro()
+
+#
 # ov_disable_all_warnings(<target1 [target2 target3 ...]>)
 #
 # Disables all warnings for 3rd party targets
