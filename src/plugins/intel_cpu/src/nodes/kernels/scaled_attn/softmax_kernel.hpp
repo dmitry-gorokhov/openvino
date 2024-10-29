@@ -806,7 +806,6 @@ inline void multiply_scalar(float* a, float* a_dst, const float val, const size_
     }
 #elif defined(OPENVINO_ARCH_ARM64)
 #if defined(HAVE_SVE)
-    size_t vec_len_f32_sve = svcntw();
     svfloat32_t v_scale = svdup_n_f32(val);
     size_t inc = vec_len_f32_sve;
     svbool_t pg = svptrue_b32();

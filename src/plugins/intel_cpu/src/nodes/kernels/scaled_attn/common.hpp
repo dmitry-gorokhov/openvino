@@ -34,6 +34,10 @@ static constexpr size_t vec_len_f32_avx2 = vec_len_avx2 / sizeof(float);
 static constexpr size_t vec_len_f32_neon = vec_len_neon / sizeof(float);
 static constexpr size_t vec_len_f16_neon = vec_len_neon / sizeof(ov::float16);
 
+#if defined(HAVE_SVE)
+static constexpr size_t vec_len_f32_sve = svcntw();
+#endif
+
 #ifdef HAVE_AVX512F
     inline __m512 cvt_bf16_to_fp32(const __m256i src) {
         __m512i y = _mm512_cvtepu16_epi32(src);

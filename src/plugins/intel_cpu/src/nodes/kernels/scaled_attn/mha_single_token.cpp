@@ -63,7 +63,6 @@ void cvt_copy(TA* dst, TB* src, size_t n) {
     }
 #elif defined(OPENVINO_ARCH_ARM64)
 #if defined(HAVE_SVE)
-    size_t vec_len_f32_sve = svcntw();
     auto _dst = reinterpret_cast<float32_t*>(dst);
     size_t inc = vec_len_f32_sve;
     svbool_t pg = svptrue_b32();
@@ -86,7 +85,6 @@ void cvt_copy(TA* dst, TB* src, size_t n) {
         }
     }
 #else
-    int vec_len_f32_neon = 4;
     auto _dst = reinterpret_cast<float32_t*>(dst);
     if (std::is_same<TA, float>::value && std::is_same<TB, float>::value) {
         for (; i + vec_len_f32_neon <= n; i += vec_len_f32_neon) {
@@ -123,7 +121,6 @@ static void attn_acc_value(float* out, float weight, T* v, size_t S, float* scal
     }
 #elif defined(OPENVINO_ARCH_ARM64)
 #if defined(HAVE_SVE)
-    size_t vec_len_f32_sve = svcntw();
     auto _v = reinterpret_cast<float32_t*>(v);
     svfloat32_t attn_w_vec_fp32 = svdup_n_f32(weight);
     size_t inc = vec_len_f32_sve;
@@ -404,7 +401,6 @@ static float sum_q_head(T* a, size_t n) {
     sum = _mm256_cvtss_f32(vsum0);
 #elif defined(OPENVINO_ARCH_ARM64)
 #if defined(HAVE_SVE)
-    size_t vec_len_f32_sve = svcntw();
     svfloat32_t sum0 = svdup_n_f32(0.0f);
     svfloat32_t sum1 = svdup_n_f32(0.0f);
     svfloat32_t sum2 = svdup_n_f32(0.0f);
@@ -448,7 +444,6 @@ static float sum_q_head(T* a, size_t n) {
     float32_t sum_3 = svaddv_f32(pg, sum3);
     sum = static_cast<float>(sum_0 + sum_1 + sum_2 + sum_3);
 #else
-    size_t vec_len_f32_neon = 4;
     float32x4_t vsum0 = vdupq_n_f32(0.0f);
     float32x4_t vsum1 = vdupq_n_f32(0.0f);
     float32x4_t vsum2 = vdupq_n_f32(0.0f);
@@ -589,7 +584,6 @@ static float dot_product(TA* a, TB* b, size_t n, float* scale, float* zp, float*
 
 #elif defined(OPENVINO_ARCH_ARM64)
 #if defined(HAVE_SVE)
-    size_t vec_len_f32_sve = svcntw();
     svbool_t pg = svptrue_b32();
     svfloat32_t sum0 = svdup_n_f32(0.0f);
     svfloat32_t sum1 = svdup_n_f32(0.0f);
@@ -940,7 +934,6 @@ static void attn_reduce(T* dst, float* temp, size_t M, size_t S, size_t temp_str
     }
 #elif defined(OPENVINO_ARCH_ARM64)
 #if defined(HAVE_SVE)
-    size_t vec_len_f32_sve = svcntw();
     auto _dst = reinterpret_cast<float32_t*>(dst);
     size_t inc = vec_len_f32_sve;
     svbool_t pg = svptrue_b32();

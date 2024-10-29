@@ -22,6 +22,7 @@
 #    include <sys/auxv.h>
 #    define ARM_COMPUTE_CPU_FEATURE_HWCAP_FPHP    (1 << 9)
 #    define ARM_COMPUTE_CPU_FEATURE_HWCAP_ASIMDHP (1 << 10)
+#    define ARM_COMPUTE_CPU_FEATURE_HWCAP_SVE     (1 << 24)
 #elif defined(__APPLE__) && defined(__aarch64__)
 #    include <sys/sysctl.h>
 #    include <sys/types.h>
@@ -181,7 +182,7 @@ bool with_cpu_sve() {
 #    if !defined(_WIN64) && !defined(BARE_METAL) && !defined(__APPLE__) && !defined(__OpenBSD__) && \
         !defined(__arm__) && defined(__aarch64__)
     const uint32_t hwcaps = getauxval(AT_HWCAP);
-    return hwcaps & HWCAP_SVE;
+    return hwcaps & ARM_COMPUTE_CPU_FEATURE_HWCAP_SVE;
 #    elif !defined(_WIN64) && !defined(BARE_METAL) && !defined(__APPLE__) && !defined(__OpenBSD__) && \
         !defined(__aarch64__) && defined(__arm__)
     return false;
