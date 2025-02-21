@@ -21,6 +21,7 @@
 #include "openvino/runtime/iremote_context.hpp"
 #include "openvino/runtime/threading/executor_manager.hpp"
 #include "openvino/util/pp.hpp"
+#include "openvino/runtime/plugin_context.hpp"
 
 namespace ov {
 
@@ -212,6 +213,9 @@ public:
      */
     const std::shared_ptr<ov::threading::ExecutorManager>& get_executor_manager() const;
 
+    void set_plugin_context(const std::shared_ptr<ov::PluginContext>& context);
+    std::shared_ptr<ov::PluginContext> get_plugin_context() const;
+
     virtual ~IPlugin() = default;
 
 protected:
@@ -222,6 +226,7 @@ private:
     std::weak_ptr<ov::ICore> m_core;                                     //!< A pointer to ICore interface
     std::shared_ptr<ov::threading::ExecutorManager> m_executor_manager;  //!< A tasks execution manager
     ov::Version m_version;                                               //!< Member contains plugin version
+    std::shared_ptr<ov::PluginContext> m_context;
 };
 
 /**

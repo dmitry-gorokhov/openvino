@@ -12,6 +12,7 @@
 #include "openvino/core/type/element_type.hpp"
 #include "shape_inference/shape_inference_pass_through.hpp"
 #include "transformations/cpu_opset/common/op/read_value_with_subgraph.hpp"
+#include "openvino/runtime/tensor_cache.hpp"
 
 using namespace dnnl;
 using namespace dnnl::impl::cpu::x64;
@@ -373,9 +374,55 @@ void Input::cloneBlobIfRequired() {
         // original weights are stored.
         (!weightCache || context->getNumNumaNodes() == 1 || context->getCPUStreamExecutor()->get_streams_num() == 1);
 
-    memoryPtr = clone_is_not_needed ? std::make_shared<Memory>(getEngine(), memDesc, m_constOp->get_data_ptr())
-                                    : std::const_pointer_cast<const IMemory>(
-                                          weightCache ? *weightCache->findOrCreate(blobKey(), cloneBlob) : cloneBlob());
+    // memoryPtr = clone_is_not_needed ? std::make_shared<Memory>(getEngine(), memDesc, m_constOp->get_data_ptr())
+    //                                 : std::const_pointer_cast<const IMemory>(
+    //                                       weightCache ? *weightCache->findOrCreate(blobKey(), cloneBlob) : cloneBlob());
+    if (const auto tensorCache = context->getTensorCache()) {
+        auto create = [&]() -> ov::WeightsCache::TensorInfo::Ptr {
+            if (clone_is_not_needed) {
+                // constOp->get
+                auto tensor = m_constOp->get_tensor_view();
+                // ov::Tensor tensor(constOp->get_element_type(), constOp->get_shape(), constOp->get_data_ptr_nc());
+                auto desc = std::make_shared<const ov::BlockedTensorDesc>(memDesc.getBlockDims(), memDesc.getOrder(),
+                    memDesc.getStrides(), memDesc.getOffsetPaddingToData());
+                return std::make_shared<ov::WeightsCache::TensorInfo>(tensor, desc);
+            } else {
+                auto memPtr = cloneBlob();
+                const auto& memDesc = memPtr->getDescPtr()->as<CpuBlockedMemoryDesc>();
+                ov::Tensor tensor(memPtr->getPrecision(), memPtr->getStaticDims(), memPtr->getData());
+                auto desc = std::make_shared<const ov::BlockedTensorDesc>(memDesc->getBlockDims(), memDesc->getOrder(),
+                    memDesc->getStrides(), memDesc->getOffsetPaddingToData());
+                return std::make_shared<ov::WeightsCache::TensorInfo>(tensor, desc);
+            }
+        };
+
+        if (getName() == "195") {
+            std::cerr << getName() << std::endl;
+        }
+
+        auto id = ov::get_weights_id(m_constOp);
+        auto it = tensorCache->findOrCreate(id, create);
+        const auto& tensorInfo = it->second;
+        const auto& t = tensorInfo.m_tensor;
+        const auto& td = tensorInfo.m_tensor_desc;
+
+        Shape newShape(t.get_shape().empty() ? ov::Shape(1, 1) : t.get_shape());
+        CpuBlockedMemoryDesc memDesc(t.get_element_type(), newShape, td->get_blocked_dims(),
+            td->get_order(), 0, td->get_offset_padding_to_data(), td->get_strides());
+        if (t.get_element_type() == element::string) {
+            memoryPtr = std::make_shared<StringMemory>(getEngine(), memDesc, t.data<std::string>());
+        } else {
+            memoryPtr = std::make_shared<Memory>(getEngine(), memDesc, t.data(), true, id);
+        }
+    } else {
+        memoryPtr = clone_is_not_needed ? std::make_shared<Memory>(getEngine(), memDesc, m_constOp->get_data_ptr()) : cloneBlob();
+    }
+
+    if (getName() == "195") {
+        auto memory_desc = memoryPtr->getDescWithType<BlockedMemoryDesc>();
+        std::cerr << memory_desc->getShape().getStaticDims() << std::endl;
+        std::cerr << getName() << std::endl;
+    }
 }
 
 static std::vector<Shape> createInputShapes(const Shape& shape, const Type type) {

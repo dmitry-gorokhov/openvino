@@ -522,6 +522,7 @@ ov::Any Plugin::get_ro_property(const std::string& name, const ov::AnyMap& optio
 
 ov::SupportedOpsMap Plugin::query_model(const std::shared_ptr<const ov::Model>& model, const ov::AnyMap& config) const {
     WeightsSharing::Ptr fake_w_cache;
+    ov::WeightsCache::Ptr fake_tensor_cache;
 
     if (model == nullptr) {
         OPENVINO_THROW("Only ngraph-based models are supported!");
@@ -532,7 +533,7 @@ ov::SupportedOpsMap Plugin::query_model(const std::shared_ptr<const ov::Model>& 
     conf.applyRtInfo(model);
     conf.readProperties(config, modelType);
 
-    auto context = std::make_shared<GraphContext>(conf, fake_w_cache, false);
+    auto context = std::make_shared<GraphContext>(conf, fake_w_cache, false, fake_tensor_cache);
 
     auto supported = ov::get_supported_nodes(
         model,

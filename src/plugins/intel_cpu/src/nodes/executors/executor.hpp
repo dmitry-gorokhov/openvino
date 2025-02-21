@@ -92,6 +92,7 @@ public:
         : runtimeCache(graphContext->getParamsCache()),
           scratchPads(graphContext->getScratchPads()),
           weightsCache(graphContext->getWeightsCache()),
+          tensorCache(graphContext->getTensorCache()),
           engine(graphContext->getEngine()),
           implPriorities(std::move(implPriorities)),
           privateWeighCache(std::move(privateWeighCache)),
@@ -126,12 +127,17 @@ public:
         return weightsCache;
     }
 
+    const ov::WeightsCache::Ptr getTensorCache() const {
+        return tensorCache;
+    }
+
 private:
     // weak_ptr is required to avoid cycle dependencies with MultiCache
     // since ExecutorContext is stored in Executor itself
     MultiCacheWeakPtr runtimeCache;
     std::vector<DnnlScratchPadPtr> scratchPads;
     WeightsSharing::Ptr weightsCache;
+    ov::WeightsCache::Ptr tensorCache;
     const dnnl::engine& engine;
     std::vector<impl_desc_type> implPriorities;
     // @todo remove after global cache is used exclusevly

@@ -108,3 +108,7 @@ bool ov::Plugin::supports_model_caching() const {
                 util::contains(get_property(ov::internal::supported_properties), ov::internal::caching_properties);
     return supported;
 }
+
+void ov::Plugin::set_plugin_context(std::shared_ptr<ov::PluginContext> context) {
+    OV_PLUGIN_CALL_STATEMENT({ m_ptr->set_plugin_context(context); });
+}

@@ -67,19 +67,20 @@ void transferData(const IMemory& src, const IMemory& dst, bool ftz) {
 
 }  // namespace
 
-Memory::Memory(dnnl::engine eng, MemoryDescPtr desc, const void* data, bool pads_zeroing)
+Memory::Memory(dnnl::engine eng, MemoryDescPtr desc, const void* data, bool pads_zeroing, const std::string& id)
     : m_eng(std::move(eng)),
       m_pMemDesc(std::move(desc)),
       m_blockHandle(std::make_shared<DnnlMemoryBlock>(make_unique<MemoryBlockWithReuse>()), this),
-      dnnlMemHandle(this) {
+      dnnlMemHandle(this),
+      m_id(id) {
     if (m_pMemDesc->getPrecision() == element::string) {
         OPENVINO_THROW("[CPU] Memory object cannot be created for string data.");
     }
     create(m_pMemDesc, data, pads_zeroing);
 }
 
-Memory::Memory(dnnl::engine eng, const MemoryDesc& desc, const void* data, bool pads_zeroing)
-    : Memory::Memory(std::move(eng), desc.clone(), data, pads_zeroing) {}
+Memory::Memory(dnnl::engine eng, const MemoryDesc& desc, const void* data, bool pads_zeroing, const std::string& id)
+    : Memory::Memory(std::move(eng), desc.clone(), data, pads_zeroing, id) {}
 
 Memory::Memory(dnnl::engine eng, MemoryDescPtr desc, MemoryBlockPtr block)
     : m_eng(std::move(eng)),

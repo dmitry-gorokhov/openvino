@@ -14,6 +14,7 @@
 #include "openvino/runtime/common.hpp"
 #include "openvino/runtime/icompiled_model.hpp"
 #include "openvino/runtime/threading/executor_manager.hpp"
+#include "openvino/runtime/tensor_cache.hpp"
 
 namespace ov {
 
@@ -242,6 +243,8 @@ private:
         }
     }
     void add_extensions_unsafe(const std::vector<ov::Extension::Ptr>& extensions) const;
+
+    ov::WeightsCache::Ptr m_tensor_cache;
 
 public:
     CoreImpl();

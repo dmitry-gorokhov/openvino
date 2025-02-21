@@ -11,6 +11,7 @@
 #include "openvino/runtime/threading/cpu_streams_executor.hpp"
 #include "sub_memory_manager.hpp"
 #include "weights_cache.hpp"
+#include "openvino/runtime/tensor_cache.hpp"
 
 namespace ov {
 namespace intel_cpu {
@@ -30,6 +31,7 @@ public:
     GraphContext(Config config,
                  WeightsSharing::Ptr w_cache,
                  bool isGraphQuantized,
+                 ov::WeightsCache::Ptr tensorCache,
                  ov::threading::IStreamsExecutor::Ptr streamExecutor = nullptr,
                  std::shared_ptr<SubMemoryManager> sub_memory_manager = nullptr);
 
@@ -95,6 +97,10 @@ public:
         }
     }
 
+    const ov::WeightsCache::Ptr getTensorCache() const {
+        return m_tensorCache;
+    }
+
 private:
     // model-level config
     Config m_config;
@@ -104,6 +110,8 @@ private:
     MultiCachePtr m_rtParamsCache;
     // global scratch pad
     DnnlScratchPadPtr m_rtScratchPad;
+
+    ov::WeightsCache::Ptr m_tensorCache;
 
     bool m_isGraphQuantizedFlag = false;
     // scratch pad per sub-stream

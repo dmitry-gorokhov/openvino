@@ -75,6 +75,8 @@ public:
         return get_property(property.name(), arguments).template as<T>();
     }
     bool supports_model_caching() const;
+
+    void set_plugin_context(std::shared_ptr<ov::PluginContext> context);
 };
 
 }  // namespace ov

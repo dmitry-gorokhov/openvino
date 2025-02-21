@@ -347,6 +347,9 @@ ov::CoreImpl::CoreImpl() {
     for (const auto& it : ov::get_available_opsets()) {
         opsetNames.insert(it.first);
     }
+
+    // TODO: do we need to share TensorCache cross multiple Core objects?
+    m_tensor_cache = std::make_shared<ov::WeightsCache>();
 }
 
 bool ov::CoreImpl::is_proxy_device(const ov::Plugin& plugin) const {
@@ -646,6 +649,9 @@ ov::Plugin ov::CoreImpl::get_plugin(const std::string& pluginName) const {
             std::weak_ptr<ov::ICore> mutableCore =
                 std::const_pointer_cast<ov::ICore>(std::dynamic_pointer_cast<const ov::ICore>(shared_from_this()));
             plugin.set_core(std::move(mutableCore));
+
+            auto plugin_context = std::make_shared<ov::PluginContext>(m_tensor_cache);
+            plugin.set_plugin_context(plugin_context);
         }
 
         // configuring

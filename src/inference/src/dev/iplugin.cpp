@@ -514,3 +514,11 @@ std::unordered_set<std::string> ov::get_supported_nodes(
 
     return res;
 }
+
+void ov::IPlugin::set_plugin_context(const std::shared_ptr<ov::PluginContext>& context) {
+    m_context = context;
+}
+
+std::shared_ptr<ov::PluginContext> ov::IPlugin::get_plugin_context() const {
+    return m_context;
+}

@@ -216,6 +216,8 @@ public:
               typename std::enable_if<!std::is_pointer<T>::value && !std::is_reference<T>::value, int>::type = 0,
               typename std::enable_if<std::is_base_of<MemoryDesc, T>::value, int>::type = 0>
     std::shared_ptr<T> getDescWithType() const;
+
+    virtual std::string getId() const { return {}; };
 };
 
 class StaticMemory final : public IMemory {
@@ -280,8 +282,8 @@ private:
 
 class Memory : public IMemory {
 public:
-    Memory(dnnl::engine eng, MemoryDescPtr desc, const void* data = nullptr, bool pads_zeroing = true);
-    Memory(dnnl::engine eng, const MemoryDesc& desc, const void* data = nullptr, bool pads_zeroing = true);
+    Memory(dnnl::engine eng, MemoryDescPtr desc, const void* data = nullptr, bool pads_zeroing = true, const std::string& i = {});
+    Memory(dnnl::engine eng, const MemoryDesc& desc, const void* data = nullptr, bool pads_zeroing = true, const std::string& id = {});
     Memory(dnnl::engine eng, MemoryDescPtr desc, MemoryBlockPtr block);
     Memory(dnnl::engine eng, const MemoryDesc& desc, MemoryBlockPtr block);
 
@@ -326,6 +328,10 @@ public:
         return m_blockHandle.get();
     }
 
+    std::string getId() const override {
+        return m_id;
+    }
+
 private:
     friend DnnlMemoryBlock;
     friend ProxyMemoryBlock;
@@ -341,6 +347,8 @@ private:
     MemoryDescPtr m_pMemDesc;
     DnnlMemBlockHandle m_blockHandle;
     bool m_padsZeroing = true;
+    std::string m_id;
+
     class DnnlMemPrimHandle {
     public:
         explicit DnnlMemPrimHandle(const Memory* memObjPtr) : m_memObjPtr(memObjPtr) {}

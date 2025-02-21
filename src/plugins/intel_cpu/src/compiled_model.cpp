@@ -27,6 +27,7 @@
 #include "transformations/transformation_pipeline.h"
 #include "transformations/utils/utils.hpp"
 #include "utils/serialize.hpp"
+#include "openvino/runtime/plugin_context.hpp"
 
 #if defined(OV_CPU_WITH_ACL)
 #    include "nodes/executors/acl/acl_ie_scheduler.hpp"
@@ -167,6 +168,7 @@ CompiledModel::GraphGuard::Lock CompiledModel::get_graph() const {
                     ctx = std::make_shared<GraphContext>(m_cfg,
                                                          m_socketWeights[socketId],
                                                          isQuantizedFlag,
+                                                         m_plugin->get_plugin_context()->get_tensor_cache(),
                                                          streamsExecutor,
                                                          m_sub_memory_manager);
                 }
