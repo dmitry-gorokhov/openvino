@@ -3,7 +3,6 @@
 //
 
 #include "kleidiai_mm.hpp"
-#include "kleidi_quant_utils.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -32,7 +31,20 @@ static std::vector<T> normalizeDimsTo2D(const std::vector<T>& dims) {
     return {std::accumulate(dims.begin(), dims.end() - 1, (T)1, std::multiplies<T>()), dims[dims.size() - 1]};
 }
 
+static bool useDynamicQuantizationImpl(const FCAttrs& attrs, const MemoryDescPtr& weightDesc) {
+    if (attrs.dynamicQuantizationGroupSize != UINT64_MAX)
+        return false;
+
+    if (weightDesc->getPrecision() != element::i8)
+        return false;
+
+    return true;
+}
+
 bool MatMulKleidiAIExecutor::supports(const FCConfig& config) {
+    if (config.descs.at(ARG_WEI)->getPrecision() != element::f32 && !useDynamicQuantizationImpl(config.attrs, config.descs.at(ARG_WEI)))
+        return false;
+
     return true;
 }
 
@@ -63,19 +75,15 @@ MatMulKleidiAIExecutor::MatMulKleidiAIExecutor(const FCAttrs& attrs,
     const VectorDims wgtDims2D = reshapeDownToRank<2>(wgtDims);
     originalWeightsDesc = std::make_shared<CpuBlockedMemoryDesc>(originalWeightsDesc->getPrecision(), Shape{wgtDims2D});
     auto dnnlSrcDesc = MemoryDescUtils::convertToDnnlMemoryDesc(originalWeightsDesc);
-    auto dstDesc = originalWeightsDesc->cloneWithNewPrecision(memory.at(ARG_SRC)->getDescPtr()->getPrecision());
-    auto dnnlDstDesc = MemoryDescUtils::convertToDnnlMemoryDesc(dstDesc);
 
     // Whether dynamic quantization is enabled
-    hasDynQuant = (attrs.dynamicQuantizationGroupSize > 0);
-    
-    if (hasDynQuant && !attrs.weightsNonTransposed) {
-        dnnlDstDesc = acl_fc_executor::makeTransposedWeightDescriptor(dnnlDstDesc, dnnlSrcDesc);
-        aclfcAttrs.isWeightsRepacked = true;
-    }
-    packedWeights = acl_fc_executor::reorderWeights(memory, context, aclfcAttrs, dnnlSrcDesc, dnnlDstDesc);
+    useDynamicQuant = useDynamicQuantizationImpl(attrs, originalWeightsDesc);
 
-    if (!hasDynQuant) {
+    if (!useDynamicQuant) {
+        auto dstDesc = originalWeightsDesc->cloneWithNewPrecision(memory.at(ARG_SRC)->getDescPtr()->getPrecision());
+        auto dnnlDstDesc = MemoryDescUtils::convertToDnnlMemoryDesc(dstDesc);
+        packedWeights = acl_fc_executor::reorderWeights(memory, context, aclfcAttrs, dnnlSrcDesc, dnnlDstDesc);
+
         const size_t rhsPackedSize = kai_get_rhs_packed_size_rhs_pack_kxn_f32p8x1biasf32_f32_f32_neon(N, K);
         auto rhsPackedDesc = std::make_shared<CpuBlockedMemoryDesc>(f32, Shape({rhsPackedSize}));
         rhsPackedMem = std::make_shared<Memory>(context->getEngine(), rhsPackedDesc);
@@ -102,34 +110,24 @@ MatMulKleidiAIExecutor::MatMulKleidiAIExecutor(const FCAttrs& attrs,
                                                         rhs_packed,  // RHS packed
                                                         0,
                                                         nullptr);
-    } 
+    }
     else {
-        auto rhsScalesDesc = std::make_shared<CpuBlockedMemoryDesc>(f32, Shape{N});
-        auto rhsQuantDesc = std::make_shared<CpuBlockedMemoryDesc>(i8, Shape{K, N});
-        auto rhsScalesMem = std::make_shared<Memory>(context->getEngine(), rhsScalesDesc); 
-        auto rhsQuantMem = std::make_shared<Memory>(context->getEngine(), rhsQuantDesc);
+        MemoryPtr weightsMemory = memory.at(ARG_WEI);
+        if (!attrs.weightsNonTransposed) {
+            auto dnnlSrcDesc = MemoryDescUtils::convertToDnnlMemoryDesc(originalWeightsDesc);
+            auto dnnlDstDesc = acl_fc_executor::makeTransposedWeightDescriptor(dnnlSrcDesc, dnnlSrcDesc);
+            weightsMemory = acl_fc_executor::reorderData(dnnlSrcDesc, dnnlDstDesc, memory.at(ARG_WEI), context);
+        }
 
         mr = ukernel_i8.get_mr();
         nr = ukernel_i8.get_nr();
         kr = ukernel_i8.get_kr();
         sr = ukernel_i8.get_sr();
-        
-        float* bias = biasMem->getDataAs<float>();
-        
-        // RHS is taken from non-reordered weiMem because the quantization function 
-        // stores its results in column-major order, thus performing a transpose
-        float* rhs = static_cast<float*>(weiMem->getData());
-        float* rhs_scales = static_cast<float*>(rhsScalesMem->getData());
-        int8_t* rhs_native_qs8cx = static_cast<int8_t*>(rhsQuantMem->getData());
 
-        quant_kxn_qs8cx_f32(
-            N, K,                                   // Dimensions 
-            K,                                      // Quantization block size
-            rhs,                                    // RHS (F32)
-            rhs_native_qs8cx,                       // RHS (int8)
-            rhs_scales                              // RHS scales (FP32)
-        );
-        
+        float* bias = biasMem->getDataAs<float>();
+        int8_t* rhs_native_qs8cx = static_cast<int8_t*>(weightsMemory->getData());
+        float* rhs_scales = static_cast<float*>(memory.at(ARG_WEI | ARG_ATTR_SCALES)->getData());
+
         const size_t rhsPackedSize = kai_get_rhs_packed_size_rhs_pack_kxn_qsi8cxp_qsi8cx_neon(N, K, nr, kr, sr);
         auto rhsPackedDesc = std::make_shared<CpuBlockedMemoryDesc>(i8, Shape({rhsPackedSize}));
         rhsPackedMem = std::make_shared<Memory>(context->getEngine(), rhsPackedDesc);
@@ -140,7 +138,7 @@ MatMulKleidiAIExecutor::MatMulKleidiAIExecutor(const FCAttrs& attrs,
 
         kai_run_rhs_pack_kxn_qsi8cxp_qsi8cx_neon(
             1, N, K,
-            nr, kr, sr,   
+            nr, kr, sr,
             rhs_native_qs8cx,
             bias,
             rhs_scales,
@@ -170,7 +168,7 @@ bool MatMulKleidiAIExecutor::update(const MemoryArgs& memory) {
         M = outDims[0];
     }
     // Assign LHS memory
-    if (hasDynQuant) {
+    if (useDynamicQuant) {
         const size_t lhsPackedSize = kai_get_lhs_packed_size_lhs_quant_pack_qai8dxp_f32(M, K, mr, kr, sr);
         auto lhsPackedDesc = std::make_shared<CpuBlockedMemoryDesc>(i8, Shape({lhsPackedSize}));
         lhsPackedMem = scratchPad->createScratchPadMem(lhsPackedDesc);
@@ -194,11 +192,11 @@ void MatMulKleidiAIExecutor::execute(const MemoryArgs& memory) {
     const size_t dst_stride_col = sizeof(float);
     float* lhs = srcMem->getDataAs<float>();
     float* dst = dstMem->getDataAs<float>();
-    
+
     size_t n_blocks = (N + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    
+
     // Create packed LHS and RHS
-    if (!hasDynQuant) {
+    if (!useDynamicQuant) {
         float* rhs_packed = static_cast<float*>(rhsPackedMem->getData());
 
         parallel_for(n_blocks, [&](size_t n_block) {
@@ -222,7 +220,7 @@ void MatMulKleidiAIExecutor::execute(const MemoryArgs& memory) {
                         FLOAT_MIN,
                         FLOAT_MAX);
         });
-    } 
+    }
     else {
         int8_t* lhs_packed_qa8dx = static_cast<int8_t*>(lhsPackedMem->getData());
         int8_t* rhs_packed_qs8cx = static_cast<int8_t*>(rhsPackedMem->getData());
@@ -237,7 +235,7 @@ void MatMulKleidiAIExecutor::execute(const MemoryArgs& memory) {
 
         const size_t lhs_packed_offset = ukernel_i8.get_lhs_packed_offset(0, K);
         const void* lhs_ptr = (const void*)((const char*)lhs_packed_qa8dx + lhs_packed_offset);
-        
+
         parallel_for(n_blocks, [&](size_t n_block) {
             size_t n_start = (n_block * BLOCK_SIZE);
             size_t n_end = std::min(n_start + BLOCK_SIZE, N);

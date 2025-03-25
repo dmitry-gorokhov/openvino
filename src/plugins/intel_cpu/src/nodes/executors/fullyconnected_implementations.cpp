@@ -360,36 +360,63 @@ const std::vector<ExecutorImplementation<FCAttrs>>& getImplementations() {
                     context,
                     false);
             })
-            OV_CPU_INSTANCE_KLEIDIAI(
-                "fullyconnected_kleidiai",
-                ExecutorType::Kleidiai,
-                OperationType::MatMul,
-                ShapeTolerance::Agnostic,
-                // supports
-                [](const FCConfig& config) -> bool {
-                    VERIFY(noPostOps(config), UNSUPPORTED_POST_OPS);
-                    VERIFY(noSparseDecompression(config), UNSUPPORTED_SPARSE_WEIGHTS);
-                    VERIFY(noWeightsDecompression(config), UNSUPPORTED_WEIGHTS_DECOMPRESSION);
-                    VERIFY(everyone_is(f32, srcType(config), weiType(config), dstType(config)), UNSUPPORTED_SRC_PRECISIONS);
-                    if (config.attrs.withBias) {
-                        VERIFY(biaType(config) == f32, UNSUPPORTED_SRC_PRECISIONS);
+        OV_CPU_INSTANCE_DNNL(
+            "matmul_dnnl",
+            ExecutorType::Dnnl,
+            OperationType::MatMul,
+            ShapeTolerance::Dependant,
+            // supports
+            [](const FCConfig& config) -> bool {
+                // enable only with debug caps and env variable defined for now
+                CPU_DEBUG_CAP_ENABLE(
+                    if (getEnvBool("OV_CPU_ENABLE_DNNL_MAMTUL_FOR_FC")) {
+                        VERIFY(noSparseDecompression(config), UNSUPPORTED_SPARSE_WEIGHTS);
+                        return true;
+                    })
+                return false;
+            },
+            // requiresFallback
+            [](const FCConfig& config) -> std::optional<executor::Config<FCAttrs>> {
+                return requiresFallbackCommon(config,
+                                                dnnlMatMulTypeMapping,
+                                                dnnlFCLayoutConfig,
+                                                dnnlFCMappingNotation);
+            },
+            // acceptsShapes
+            [](const MemoryArgs& memory) -> bool {
+                return true;
+            },
+            // create
+            [](const FCAttrs& attrs,
+                const PostOps& postOps,
+                const MemoryArgs& memory,
+                const ExecutorContext::CPtr& context) -> std::shared_ptr<Executor> {
+                struct MatMulInstantiator {
+                    std::shared_ptr<DnnlMatMulPrimitive> operator()(
+                        const MemoryArgs& memory,
+                        const FCAttrs& attrs,
+                        const ExecutorContext::CPtr& context,
+                        const std::shared_ptr<DnnlShapeAgnosticData>& shareAgnosticData) const {
+                        MatMulAttrs matMulAttrs{false,
+                                                false};
+                        auto primitive =
+                            DefaultInstantiator<DnnlMatMulPrimitive, MatMulAttrs, DnnlShapeAgnosticData>{}(
+                            memory,
+                            matMulAttrs,
+                            context,
+                            shareAgnosticData);
+                        return primitive;
                     }
-                    // VERIFY(srcRank(config) == 2U, UNSUPPORTED_SRC_RANK);
-                    VERIFY(weiRank(config) == 2U, UNSUPPORTED_WEI_RANK);
-                    return MatMulKleidiAIExecutor::supports(config);
-                },
-                // requiresFallback
-                [](const FCConfig& config) -> ov::optional<executor::Config<FCAttrs>> {
-                    return {};
-                },
-                // acceptsShapes
-                [](const MemoryArgs& memory) -> bool {
-                    return true;
-                },
-                // create
-                [](const FCAttrs& attrs, const PostOps& postOps, const MemoryArgs& memory, ExecutorContext::CPtr context) {
-                    return std::make_shared<MatMulKleidiAIExecutor>(attrs, postOps, memory, context);
-                })
+                };
+
+                return std::make_shared<
+                    DnnlFCExecutor<DnnlMatMulPrimitive, FCAttrs, DnnlShapeAgnosticData, MatMulInstantiator>>(
+                    attrs,
+                    postOps,
+                    memory,
+                    context,
+                    false);
+            })
         OV_CPU_INSTANCE_ACL(
             "fullyconnected_acl",
             ExecutorType::Acl,
@@ -461,12 +488,11 @@ const std::vector<ExecutorImplementation<FCAttrs>>& getImplementations() {
             [](const FCConfig& config) -> bool {
                 VERIFY(noPostOps(config), UNSUPPORTED_POST_OPS);
                 VERIFY(noSparseDecompression(config), UNSUPPORTED_SPARSE_WEIGHTS);
-                VERIFY(noWeightsDecompression(config), UNSUPPORTED_WEIGHTS_DECOMPRESSION);
-                VERIFY(everyone_is(f32, srcType(config), weiType(config), dstType(config)), UNSUPPORTED_SRC_PRECISIONS);
+                VERIFY(everyone_is(f32, srcType(config), dstType(config)), UNSUPPORTED_SRC_PRECISIONS);
+                VERIFY(one_of(weiType(config), f32, i8), UNSUPPORTED_WEI_PRECISIONS);
                 if (config.attrs.withBias) {
                     VERIFY(biaType(config) == f32, UNSUPPORTED_SRC_PRECISIONS);
                 }
-                VERIFY(srcRank(config) == 2U, UNSUPPORTED_SRC_RANK);
                 VERIFY(weiRank(config) == 2U, UNSUPPORTED_WEI_RANK);
                 return MatMulKleidiAIExecutor::supports(config);
             },
@@ -512,63 +538,6 @@ const std::vector<ExecutorImplementation<FCAttrs>>& getImplementations() {
                 return std::make_shared<ShlFCExecutor>(attrs, postOps, memory, context);
             }
         )
-        OV_CPU_INSTANCE_DNNL(
-            "matmul_dnnl",
-            ExecutorType::Dnnl,
-            OperationType::MatMul,
-            ShapeTolerance::Dependant,
-            // supports
-            [](const FCConfig& config) -> bool {
-                // enable only with debug caps and env variable defined for now
-                CPU_DEBUG_CAP_ENABLE(
-                    if (getEnvBool("OV_CPU_ENABLE_DNNL_MAMTUL_FOR_FC")) {
-                        VERIFY(noSparseDecompression(config), UNSUPPORTED_SPARSE_WEIGHTS);
-                        return true;
-                    })
-                return false;
-            },
-            // requiresFallback
-            [](const FCConfig& config) -> std::optional<executor::Config<FCAttrs>> {
-                return requiresFallbackCommon(config,
-                                              dnnlMatMulTypeMapping,
-                                              dnnlFCLayoutConfig,
-                                              dnnlFCMappingNotation);
-            },
-            // acceptsShapes
-            [](const MemoryArgs& memory) -> bool {
-                return true;
-            },
-            // create
-            [](const FCAttrs& attrs,
-               const PostOps& postOps,
-               const MemoryArgs& memory,
-               const ExecutorContext::CPtr& context) -> std::shared_ptr<Executor> {
-                struct MatMulInstantiator {
-                    std::shared_ptr<DnnlMatMulPrimitive> operator()(
-                        const MemoryArgs& memory,
-                        const FCAttrs& attrs,
-                        const ExecutorContext::CPtr& context,
-                        const std::shared_ptr<DnnlShapeAgnosticData>& shareAgnosticData) const {
-                        MatMulAttrs matMulAttrs{false,
-                                                false};
-                        auto primitive =
-                            DefaultInstantiator<DnnlMatMulPrimitive, MatMulAttrs, DnnlShapeAgnosticData>{}(
-                            memory,
-                            matMulAttrs,
-                            context,
-                            shareAgnosticData);
-                        return primitive;
-                    }
-                };
-
-                return std::make_shared<
-                    DnnlFCExecutor<DnnlMatMulPrimitive, FCAttrs, DnnlShapeAgnosticData, MatMulInstantiator>>(
-                    attrs,
-                    postOps,
-                    memory,
-                    context,
-                    false);
-            })
         OV_CPU_INSTANCE_DNNL(
             "fullyconnected_dnnl",
             ExecutorType::Dnnl,

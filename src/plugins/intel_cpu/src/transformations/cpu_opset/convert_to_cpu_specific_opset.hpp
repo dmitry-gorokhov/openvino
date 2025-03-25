@@ -46,7 +46,7 @@ inline void ConvertToCPUSpecificOpset(std::shared_ptr<ov::Model>& model, const C
                                                                                        IC,
                                                                                        OC,
                                                                                        G,
-                                                                                       config.inferencePrecision);
+                                                                                       config);
         });
 
     CPU_REGISTER_PASS_X64(manager, pass::ConvertFCToFCQuantizedLegacy);

@@ -85,7 +85,7 @@ private:
     size_t mr, nr, kr, sr;
     size_t BLOCK_SIZE = 8;
     int curNumaNode = -1;
-    bool hasDynQuant = false;
+    bool useDynamicQuant = false;
 };
 
 using MatMulKleidiAIExecutorPtr = std::shared_ptr<MatMulKleidiAIExecutor>;
